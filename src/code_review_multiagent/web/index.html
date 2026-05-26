@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Multi-Agent Code Review</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg:#f5f7fb; --panel:#fff; --text:#172033; --muted:#667085; --line:#d9e0ea;
+      --blue:#1d4ed8; --blue-soft:#eaf1ff; --green:#15803d; --red:#b91c1c; --amber:#b45309;
+      --slate:#253044; --soft:#f8fafc;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { height:70px; padding:0 24px; display:flex; align-items:center; justify-content:space-between; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5; }
+    h1 { margin:0; font-size:20px; }
+    h2 { margin:0 0 14px; font-size:18px; }
+    h3 { margin:18px 0 8px; font-size:15px; }
+    h4 { margin:0 0 8px; font-size:14px; }
+    p { line-height:1.58; }
+    .muted { color:var(--muted); font-size:13px; }
+    .small { font-size:12px; }
+    .shell { max-width:1480px; margin:0 auto; padding:18px 24px 44px; }
+    .topNav { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .navBtn, button { border:1px solid transparent; border-radius:8px; padding:9px 12px; font-weight:700; cursor:pointer; background:var(--blue); color:#fff; font:inherit; }
+    .navBtn { background:#eef2f7; color:#243044; }
+    .navBtn.active { background:var(--blue); color:#fff; }
+    button.light { color:#243044; background:#eef2f7; border-color:#d9e0ea; }
+    button.secondary { background:var(--slate); }
+    button.danger { background:var(--red); }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    a { color:var(--blue); text-decoration:none; font-weight:700; }
+    .grid { display:grid; grid-template-columns:420px 1fr; gap:16px; align-items:start; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; box-shadow:0 6px 20px rgba(15,23,42,.04); }
+    .toolbar { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:14px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    label { display:block; font-size:13px; font-weight:700; margin:12px 0 6px; color:#344054; }
+    input, textarea, select { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font:inherit; background:#fff; }
+    textarea { min-height:280px; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; line-height:1.45; }
+    .tabs { display:flex; gap:8px; margin-bottom:14px; }
+    .tab { padding:8px 11px; border-radius:8px; background:#edf2f7; color:#334155; font-weight:700; font-size:13px; cursor:pointer; }
+    .tab.active { background:var(--blue); color:#fff; }
+    .drop { border:2px dashed #b7c4d6; border-radius:8px; padding:24px; text-align:center; cursor:pointer; background:#fbfdff; transition:.15s; }
+    .drop.drag { border-color:var(--blue); background:var(--blue-soft); }
+    .drop strong { display:block; margin-bottom:6px; }
+    .statusBox { margin-top:12px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:#475467; font-size:13px; }
+    .errorBox { margin-top:12px; padding:12px; border:1px solid #fecaca; border-radius:8px; background:#fff1f2; color:#991b1b; white-space:pre-wrap; }
+    .summary { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 16px; }
+    .pill { background:var(--blue-soft); color:#1e3a8a; border:1px solid #c9d9ff; padding:7px 10px; border-radius:8px; font-size:13px; font-weight:700; }
+    .pill.gray { background:#f1f5f9; color:#334155; border-color:#dbe3ee; }
+    .chatLog { display:grid; gap:10px; margin-bottom:16px; }
+    .chatEvent { display:grid; grid-template-columns:140px 1fr; gap:12px; align-items:start; }
+    .chatAgent { font-size:12px; font-weight:800; color:#334155; padding:8px 10px; border-radius:8px; background:#eef2f7; text-align:right; }
+    .chatBubble { border:1px solid var(--line); border-radius:8px; background:#fff; padding:10px 12px; }
+    .chatBubble.finding { border-left:4px solid var(--amber); margin:0; }
+    .chatStage { font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .finding, .agentCard, .record, .conflict { border:1px solid var(--line); border-left:4px solid #93c5fd; border-radius:8px; padding:12px 14px; margin:10px 0; background:#fff; }
+    .Critical { border-left-color:#7f1d1d; }
+    .High { border-left-color:#ef4444; }
+    .Medium { border-left-color:#f59e0b; }
+    .Low { border-left-color:#22c55e; }
+    .Info { border-left-color:#64748b; }
+    .agentCard { border-left-color:var(--blue); background:#fbfdff; }
+    .agentHead { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; }
+    .meta { color:var(--muted); font-size:13px; margin-bottom:8px; }
+    .conflict { border-left-color:var(--amber); background:#fffaf0; }
+    .records { display:grid; gap:10px; }
+    .record { border-left-color:#64748b; margin:0; }
+    .record:hover { background:#fbfdff; }
+    .recordTitle { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+    .empty { padding:36px 16px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:8px; background:#fff; }
+    pre { white-space:pre-wrap; background:#101827; color:#e5e7eb; padding:14px; border-radius:8px; overflow:auto; max-height:520px; font-size:13px; }
+    @media (max-width:980px) {
+      header { height:auto; padding:14px 16px; align-items:flex-start; flex-direction:column; gap:10px; }
+      .shell { padding:16px; }
+      .grid { grid-template-columns:1fr; }
+      .topNav { width:100%; }
+      .chatEvent { grid-template-columns:1fr; }
+      .chatAgent { text-align:left; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const sample = `def get_user_profile(db, request):
+    user_id = request.args.get("id")
+    sql = "SELECT * FROM users WHERE id = " + user_id
+    user = db.execute(sql).fetchone()
+
+    orders = []
+    for order_id in user.order_ids:
+        orders.append(db.execute(f"SELECT * FROM orders WHERE id = {order_id}").fetchone())
+
+    return {
+        "name": user.name,
+        "email": user.email,
+        "orders": orders,
+        "debug_token": "demo-api-key-placeholder"
+    }`;
+
+    const severityZh = { Critical:'严重', High:'高风险', Medium:'中风险', Low:'低风险', Info:'提示' };
+    const agentZh = {
+      'Security Agent':'安全审查 Agent',
+      'Performance Agent':'性能审查 Agent',
+      'Style Agent':'可维护性审查 Agent',
+      'LLM Security Agent':'模型安全审查 Agent',
+      'LLM Performance Agent':'模型性能审查 Agent',
+      'LLM Style Agent':'模型可维护性审查 Agent',
+    };
+
+    function App() {
+      const [view, setView] = React.useState('new');
+      const [inputTab, setInputTab] = React.useState('zip');
+      const [path, setPath] = React.useState('app/users.py');
+      const [code, setCode] = React.useState(sample);
+      const [report, setReport] = React.useState(null);
+      const [events, setEvents] = React.useState([]);
+      const [loading, setLoading] = React.useState(false);
+      const [error, setError] = React.useState('');
+      const [drag, setDrag] = React.useState(false);
+      const [projectFile, setProjectFile] = React.useState(null);
+      const [history, setHistory] = React.useState({items:[], total:0, limit:30, offset:0});
+      const [historyLoading, setHistoryLoading] = React.useState(false);
+      const [status, setStatus] = React.useState('');
+      const fileRef = React.useRef(null);
+
+      React.useEffect(() => { loadHistory(); }, []);
+
+      async function loadHistory() {
+        setHistoryLoading(true); setError('');
+        try {
+          const res = await fetch('/api/reviews/history?limit=50&offset=0');
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || '加载审查记录失败');
+          setHistory(data);
+        } catch (e) {
+          setError(String(e.message || e));
+        } finally {
+          setHistoryLoading(false);
+        }
+      }
+
+      async function openRecord(id) {
+        setLoading(true); setError(''); setStatus('正在读取历史报告...');
+        try {
+          const res = await fetch(`/api/reviews/history/${id}`);
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || '读取历史详情失败');
+          const eventRes = await fetch(`/api/reviews/history/${id}/events`);
+          const eventData = await eventRes.json().catch(() => ({items:[]}));
+          setReport(data); setEvents(eventData.items || data.metadata?.events || []); setView('detail'); setStatus('');
+        } catch (e) {
+          setError(String(e.message || e)); setStatus('');
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      async function deleteRecord(id) {
+        if (!confirm('确定删除这条审查记录吗？')) return;
+        setError('');
+        try {
+          const res = await fetch(`/api/reviews/history/${id}`, { method:'DELETE' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || '删除失败');
+          await loadHistory();
+          if (report?.metadata?.record_id === id) setReport(null);
+        } catch (e) {
+          setError(String(e.message || e));
+        }
+      }
+
+      async function reviewSingleFile() {
+        setLoading(true); setError(''); setStatus(''); setReport(null); setEvents([]); setView('new');
+        try {
+          const res = await fetch('/api/reviews/stream', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({repo:'manual/single-file', title:'单文件代码审查报告', files:[{path, content:code}]}) });
+          if (!res.ok) throw new Error(await res.text());
+          await consumeStream(res);
+          await loadHistory();
+        } catch(e) { setError(String(e.message || e)); }
+        finally { setLoading(false); }
+      }
+
+      async function reviewZip(file = projectFile) {
+        if (!file) { setError('请先拖入或选择 .zip 项目压缩包'); return; }
+        setLoading(true); setError(''); setStatus(''); setReport(null); setEvents([]); setView('new');
+        try {
+          const form = new FormData();
+          form.append('file', file); form.append('repo', file.name.replace(/\.zip$/i, '')); form.append('title', `项目代码审查报告：${file.name}`);
+          const res = await fetch('/api/reviews/upload/stream', { method:'POST', body:form });
+          if (!res.ok) throw new Error(await res.text());
+          await consumeStream(res);
+          await loadHistory();
+        } catch(e) { setError(String(e.message || e)); }
+        finally { setLoading(false); }
+      }
+
+      async function consumeStream(res) {
+        const reader = res.body?.getReader();
+        if (!reader) throw new Error('浏览器不支持流式读取');
+        const decoder = new TextDecoder();
+        let buffer = '';
+        while (true) {
+          const {done, value} = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, {stream:true});
+          const chunks = buffer.split('\n\n');
+          buffer = chunks.pop() || '';
+          for (const chunk of chunks) {
+            const line = chunk.split('\n').find(x => x.startsWith('data: '));
+            if (!line) continue;
+            const event = JSON.parse(line.slice(6));
+            setEvents(prev => [...prev, event]);
+            if (event.type === 'report') setReport(event.report);
+            if (event.type === 'error') setError(event.message || '审查失败');
+            if (event.type === 'complete') setStatus('审查完成，记录已写入 MySQL。');
+          }
+        }
+      }
+
+      function acceptFile(file) {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.zip')) { setError('目前项目级审查请上传 .zip 压缩包'); return; }
+        setProjectFile(file); setError('');
+      }
+
+      function onDrop(e) {
+        e.preventDefault(); setDrag(false);
+        const file = e.dataTransfer.files?.[0];
+        acceptFile(file);
+        if (file) reviewZip(file);
+      }
+
+      return <>
+        <header>
+          <div>
+            <h1>多 Agent 协作代码审查系统</h1>
+            <div className="muted">上传项目、查看流式审查过程、复盘历史报告。</div>
+          </div>
+          <nav className="topNav">
+            <button className={'navBtn '+(view==='new'?'active':'')} onClick={()=>setView('new')}>新建审查</button>
+            <button className={'navBtn '+(view==='history'?'active':'')} onClick={()=>{setView('history'); loadHistory();}}>审查记录</button>
+            <button className={'navBtn '+(view==='detail'?'active':'')} disabled={!report} onClick={()=>setView('detail')}>报告详情</button>
+            <a className="navBtn" href="/admin">管理后台</a>
+            <a className="muted" href="/docs" target="_blank">API Docs</a>
+          </nav>
+        </header>
+
+        <main className="shell">
+          {error && <div className="errorBox">{error}</div>}
+          {status && <div className="statusBox">{status}</div>}
+          {view === 'new' && <NewReviewView inputTab={inputTab} setInputTab={setInputTab} path={path} setPath={setPath} code={code} setCode={setCode} loading={loading} drag={drag} setDrag={setDrag} projectFile={projectFile} fileRef={fileRef} acceptFile={acceptFile} onDrop={onDrop} reviewZip={reviewZip} reviewSingleFile={reviewSingleFile} clear={() => { setProjectFile(null); setReport(null); setEvents([]); }} events={events} report={report} />}
+          {view === 'history' && <HistoryView history={history} loading={historyLoading} onRefresh={loadHistory} onOpen={openRecord} onDelete={deleteRecord} />}
+          {view === 'detail' && <DetailView report={report} events={events} onHistory={()=>{setView('history'); loadHistory();}} />}
+        </main>
+      </>;
+    }
+
+    function NewReviewView(props) {
+      return <div className="grid">
+        <section className="panel">
+          <div className="tabs">
+            <span onClick={()=>props.setInputTab('zip')} className={'tab '+(props.inputTab==='zip'?'active':'')}>项目压缩包</span>
+            <span onClick={()=>props.setInputTab('single')} className={'tab '+(props.inputTab==='single'?'active':'')}>单文件调试</span>
+          </div>
+          {props.inputTab === 'zip' ? <>
+            <h3>上传整个项目</h3>
+            <div className={'drop '+(props.drag?'drag':'')} onDragOver={e=>{e.preventDefault();props.setDrag(true)}} onDragLeave={e=>{e.preventDefault();props.setDrag(false)}} onDrop={props.onDrop} onClick={()=>props.fileRef.current?.click()}>
+              <input ref={props.fileRef} type="file" accept=".zip" style={{display:'none'}} onChange={e=>{const f=e.target.files?.[0]; props.acceptFile(f); e.target.value='';}} />
+              <strong>{props.projectFile ? props.projectFile.name : '拖拽 .zip 到这里，或点击选择'}</strong>
+              <div className="muted">自动解压并跳过 node_modules、.git、dist、build、二进制文件。</div>
+              <div className="small muted">限制：zip ≤ 50MB，单文件 ≤ 300KB，最多 200 个文件，总文本 ≤ 2MB。</div>
+            </div>
+            <div className="row" style={{marginTop:14}}>
+              <button disabled={props.loading || !props.projectFile} onClick={()=>props.reviewZip()}>{props.loading ? '审查中...' : '开始 Agent 审查'}</button>
+              <button className="light" onClick={props.clear}>清空</button>
+            </div>
+          </> : <>
+            <label>文件路径</label>
+            <input value={props.path} onChange={e=>props.setPath(e.target.value)} />
+            <label>代码</label>
+            <textarea value={props.code} onChange={e=>props.setCode(e.target.value)} />
+            <div className="row" style={{marginTop:14}}>
+              <button disabled={props.loading} onClick={props.reviewSingleFile}>{props.loading ? '审查中...' : '开始 Agent 审查'}</button>
+              <button className="secondary" onClick={()=>props.setCode(sample)}>加载示例</button>
+            </div>
+          </>}
+        </section>
+        <section className="panel">
+          <h2>审查过程与结果</h2>
+          {props.events.length > 0 && <ProcessLog events={props.events} />}
+          {!props.report && <div className="empty">运行审查后，这里会像聊天一样显示每个 Agent 的审查过程、阶段发现和最终建议。</div>}
+          {props.report && <Report report={props.report} />}
+        </section>
+      </div>;
+    }
+
+    function HistoryView({history, loading, onRefresh, onOpen, onDelete}) {
+      return <section className="panel">
+        <div className="toolbar">
+          <div>
+            <h2>审查记录</h2>
+            <div className="muted">记录保存在本地 MySQL，可刷新页面后继续查看详情。</div>
+          </div>
+          <button className="light" disabled={loading} onClick={onRefresh}>{loading ? '加载中...' : '刷新记录'}</button>
+        </div>
+        {!history.items.length && <div className="empty">暂无审查记录。完成一次审查后会自动写入这里。</div>}
+        <div className="records">
+          {history.items.map(item => <div className="record" key={item.id}>
+            <div className="recordTitle">
+              <div>
+                <h3 style={{marginTop:0}}>{item.title}</h3>
+                <div className="meta">{item.repo || '未命名项目'} · {formatTime(item.created_at)}</div>
+              </div>
+              <div className="row">
+                <button className="light" onClick={()=>onOpen(item.id)}>查看详情</button>
+                <button className="danger" onClick={()=>onDelete(item.id)}>删除</button>
+              </div>
+            </div>
+            <div className="summary">
+              <span className="pill">问题数：{item.total_findings}</span>
+              <span className="pill gray">文件数：{item.file_count}</span>
+              <span className="pill gray">记录 ID：{item.id}</span>
+            </div>
+            <div className="muted">优先处理：{item.top_priority || '暂无'}</div>
+          </div>)}
+        </div>
+      </section>;
+    }
+
+    function DetailView({report, events, onHistory}) {
+      if (!report) return <section className="panel"><div className="empty">还没有可查看的报告。</div></section>;
+      return <section className="panel">
+        <div className="toolbar">
+          <div>
+            <h2>{report.title || '代码审查报告'}</h2>
+            <div className="muted">{report.repo || '未命名项目'} · 记录 ID：{report.metadata?.record_id || '未保存'}</div>
+          </div>
+          <div className="row">
+            <button className="light" onClick={() => copyMarkdown(report.markdown)}>复制 Markdown</button>
+            <button className="light" onClick={onHistory}>返回记录</button>
+          </div>
+        </div>
+        {events.length > 0 && <ProcessLog events={events} />}
+        <Report report={report} showMarkdown={true} />
+      </section>;
+    }
+
+    function Report({report, showMarkdown=false}) {
+      const upload = report.metadata?.upload;
+      return <>
+        <div className="summary">
+          <span className="pill">问题数：{report.summary.total_findings}</span>
+          <span className="pill">Agent 数：{report.metadata.agent_count}</span>
+          {report.metadata.llm_enabled && <span className="pill">模型 Agent：已参与</span>}
+          <span className="pill">文件数：{upload?.included_files ?? report.metadata.file_count}</span>
+          <span className="pill">仲裁项：{report.conflicts.length}</span>
+          {report.metadata.record_id && <span className="pill gray">记录 ID：{report.metadata.record_id}</span>}
+          {Object.entries(report.summary.by_severity).map(([k,v]) => <span className="pill gray" key={k}>{severityZh[k] || k}：{v}</span>)}
+        </div>
+        {upload && <p className="muted">上传文件：{report.metadata.source_filename}；纳入审查 {upload.included_files} 个，跳过 {upload.skipped_files} 个。</p>}
+        <h3>优先处理</h3>
+        <p>{report.summary.top_priority || '暂无'}</p>
+        <h3>每个身份的建议</h3>
+        <AgentSuggestions agentReviews={report.agent_reviews || []} />
+        <h3>合并后的详细问题</h3>
+        {report.findings.length === 0 && <p className="muted">没有发现明显问题。</p>}
+        {report.findings.map((f, i) => <FindingItem finding={f} key={(f.fingerprint || '') + i} />)}
+        <h3>冲突仲裁</h3>
+        {report.conflicts.length === 0 && <p className="muted">暂未发现需要仲裁的冲突。</p>}
+        {report.conflicts.map(c => <div className="conflict" key={c.conflict_id}><h4>{c.title}</h4><p>{c.risk}</p><p><b>裁决：</b>{c.decision}</p><p><b>原因：</b>{c.rationale}</p></div>)}
+        {showMarkdown && <><h3>Markdown 报告</h3><pre>{report.markdown}</pre></>}
+      </>;
+    }
+
+    function AgentSuggestions({agentReviews}) {
+      if (!agentReviews.length) return <p className="muted">暂无 Agent 身份输出。</p>;
+      return <>
+        {[...agentReviews].sort((a,b) => a.agent.localeCompare(b.agent)).map(review => <div className="agentCard" key={review.agent}>
+          <div className="agentHead">
+            <div>
+              <h4>{agentZh[review.agent] || review.agent}</h4>
+              <div className="meta">{review.role}</div>
+            </div>
+            <span className="pill gray">输出问题：{review.findings.length}</span>
+          </div>
+          {review.notes?.length > 0 && <p className="muted">补充说明：{review.notes.join('；')}</p>}
+          {review.findings.length === 0 && <p className="muted">该身份暂未发现明确问题。</p>}
+          {review.findings.map((finding, index) => <FindingItem finding={finding} compact={true} key={(finding.fingerprint || review.agent) + index} />)}
+        </div>)}
+      </>;
+    }
+
+    function FindingItem({finding, compact=false}) {
+      return <div className={'finding '+finding.severity}>
+        <h4>{severityZh[finding.severity] || finding.severity}：{finding.category}</h4>
+        <div className="meta">{agentZh[finding.agent] || finding.agent} · {finding.file_path}{finding.line_start ? ':' + finding.line_start : ''}</div>
+        <p><b>问题证据：</b>{finding.evidence}</p>
+        <p><b>可能影响：</b>{finding.impact}</p>
+        <p><b>处理建议：</b>{finding.recommendation}</p>
+        {!compact && <p className="muted small">内部规则：{finding.rule_id}</p>}
+      </div>;
+    }
+
+    function ProcessLog({events}) {
+      const visible = events.filter(e => !['report'].includes(e.type));
+      return <div className="chatLog">
+        {visible.map((e, i) => <div key={i} className={'chatEvent '+e.type}>
+          <div className="chatAgent">{e.agent || typeName(e.type)}</div>
+          <div className={'chatBubble '+(e.type === 'agent_finding' ? 'finding' : '')}>
+            <div className="chatStage">{e.stage || typeName(e.type)}{e.metadata?.location ? ` · ${e.metadata.location}` : ''}</div>
+            <div>{e.message || '处理中...'}</div>
+          </div>
+        </div>)}
+      </div>;
+    }
+
+    function typeName(type) {
+      return {start:'开始审查', progress:'处理进度', agent:'Agent 审查', summary:'生成摘要', report:'生成报告', complete:'完成', error:'错误'}[type] || type;
+    }
+
+    function formatTime(value) {
+      if (!value) return '';
+      return value.replace('T', ' ');
+    }
+
+    async function copyMarkdown(markdown) {
+      try {
+        await navigator.clipboard.writeText(markdown || '');
+        alert('Markdown 已复制');
+      } catch {
+        alert('复制失败，请在下方 Markdown 区域手动选择文本');
+      }
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

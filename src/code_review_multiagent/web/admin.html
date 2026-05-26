@@ -1,0 +1,420 @@
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agent 管理后台</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    :root {
+      --bg:#f4f6fa; --panel:#fff; --text:#162033; --muted:#667085; --line:#d8e0eb;
+      --blue:#1d4ed8; --blue-soft:#eaf1ff; --green:#157347; --red:#b42318; --soft:#f8fafc;
+      --slate:#263244; --amber:#b45309;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font-family:Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    header { height:68px; padding:0 24px; display:flex; align-items:center; justify-content:space-between; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:4; }
+    h1 { margin:0; font-size:20px; }
+    h2 { margin:0 0 14px; font-size:18px; }
+    h3 { margin:0 0 8px; font-size:15px; }
+    p { line-height:1.55; }
+    a { color:var(--blue); text-decoration:none; font-weight:800; }
+    button, .navLink { border:1px solid transparent; border-radius:8px; padding:9px 12px; font:inherit; font-weight:800; cursor:pointer; background:var(--blue); color:#fff; }
+    button.light, .navLink { color:#253044; background:#eef2f7; border-color:#d9e0ea; }
+    button.danger { background:var(--red); }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    input, textarea, select { width:100%; border:1px solid var(--line); border-radius:8px; padding:10px 12px; font:inherit; background:#fff; }
+    textarea { min-height:110px; line-height:1.45; }
+    label { display:block; color:#344054; font-size:13px; font-weight:800; margin:12px 0 6px; }
+    .muted { color:var(--muted); font-size:13px; }
+    .small { font-size:12px; }
+    .shell { max-width:1480px; margin:0 auto; padding:18px 24px 44px; display:grid; grid-template-columns:220px 1fr; gap:16px; align-items:start; }
+    .side { background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px; position:sticky; top:86px; }
+    .side button { width:100%; margin:4px 0; text-align:left; background:#fff; color:#253044; border-color:transparent; }
+    .side button.active { background:var(--blue); color:#fff; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:16px; box-shadow:0 6px 20px rgba(15,23,42,.04); }
+    .toolbar { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px; }
+    .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .statusBox { margin:12px 0; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--soft); color:#475467; font-size:13px; }
+    .errorBox { margin:12px 0; padding:12px; border:1px solid #fecaca; border-radius:8px; background:#fff1f2; color:#991b1b; white-space:pre-wrap; }
+    .agentLayout { display:grid; grid-template-columns:minmax(360px, 0.9fr) minmax(420px, 1.1fr); gap:14px; align-items:start; }
+    .agentTable { width:100%; border-collapse:collapse; }
+    .agentTable th, .agentTable td { border-bottom:1px solid var(--line); padding:10px 8px; text-align:left; vertical-align:top; font-size:13px; }
+    .agentTable th { color:#344054; font-size:12px; background:#f8fafc; }
+    .agentTable tr.selected td { background:var(--blue-soft); }
+    .agentName { font-weight:900; color:#162033; }
+    .editor { border:1px solid var(--line); border-radius:8px; background:#fff; padding:14px; }
+    .meta { color:var(--muted); font-size:13px; margin-bottom:8px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; background:var(--blue-soft); color:#1e3a8a; border:1px solid #c9d9ff; padding:6px 9px; border-radius:8px; font-size:12px; font-weight:800; }
+    .pill.gray { background:#f1f5f9; color:#334155; border-color:#dbe3ee; }
+    .toolCatalog { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0 10px; }
+    .toolChip { border:1px solid var(--line); background:#fff; color:#253044; border-radius:8px; padding:7px 9px; font-size:12px; font-weight:800; cursor:pointer; }
+    .toolChip.active { background:var(--blue-soft); color:#1e3a8a; border-color:#a9c3ff; }
+    .toolHint { border-left:3px solid var(--amber); padding:8px 10px; background:#fffaf0; color:#6b4e16; font-size:12px; border-radius:6px; margin-top:8px; }
+    .configGrid { display:grid; grid-template-columns:minmax(320px,520px) 1fr; gap:16px; align-items:start; }
+    .empty { padding:34px 16px; text-align:center; color:var(--muted); border:1px dashed var(--line); border-radius:8px; background:#fff; }
+    @media (max-width:980px) {
+      header { height:auto; align-items:flex-start; flex-direction:column; gap:10px; padding:14px 16px; }
+      .shell { grid-template-columns:1fr; padding:16px; }
+      .side { position:static; }
+      .configGrid { grid-template-columns:1fr; }
+      .agentLayout { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const defaults = {
+      claude: { base_url: '', model: 'claude-opus-4-6-thinking' },
+      deepseek: { base_url: 'https://api.deepseek.com', model: 'deepseek-v4-pro' },
+      newapi: { base_url: '', model: 'codex-mini-latest' },
+    };
+
+    const toolCatalog = {
+      security: [
+        ['sql_injection_scanner', '拼接 SQL / 参数化风险'],
+        ['secret_scanner', '硬编码密钥和 token'],
+        ['authorization_checker', 'IDOR / 归属校验线索'],
+      ],
+      performance: [
+        ['n_plus_one_detector', '循环内查询 / N+1'],
+        ['unbounded_query_detector', '无界查询 / fetchall'],
+      ],
+      style: [
+        ['responsibility_checker', '职责混杂 / 胖控制器'],
+        ['error_handling_checker', '异常路径缺失'],
+      ],
+      llm_security: [
+        ['semantic_security_review', '语义安全复核'],
+        ['auth_boundary_review', '角色和权限边界'],
+        ['secret_exposure_review', '敏感信息暴露'],
+      ],
+      llm_performance: [
+        ['semantic_performance_review', '性能语义复核'],
+        ['query_pattern_review', '查询模式复核'],
+        ['scalability_review', '扩展性风险'],
+      ],
+      llm_style: [
+        ['maintainability_review', '可维护性复核'],
+        ['testability_review', '测试友好性复核'],
+        ['architecture_smell_review', '架构异味复核'],
+      ],
+    };
+
+    function App() {
+      const [section, setSection] = React.useState('agents');
+      const [agents, setAgents] = React.useState([]);
+      const [selectedAgentId, setSelectedAgentId] = React.useState(null);
+      const [editingNewAgent, setEditingNewAgent] = React.useState(false);
+      const [agentsLoading, setAgentsLoading] = React.useState(false);
+      const [agentStatus, setAgentStatus] = React.useState('');
+      const [configStatus, setConfigStatus] = React.useState('');
+      const [modelOptions, setModelOptions] = React.useState([]);
+      const [loadingModels, setLoadingModels] = React.useState(false);
+      const [testingModel, setTestingModel] = React.useState(false);
+      const [llmConfig, setLlmConfig] = React.useState({ provider:'claude', api_key:'', base_url:'', model:'claude-opus-4-6-thinking', timeout:300, api_key_set:false });
+
+      React.useEffect(() => { loadAgents(); loadConfig(); }, []);
+
+      async function loadAgents() {
+        setAgentsLoading(true); setAgentStatus('');
+        try {
+          const res = await fetch('/api/agents');
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || '加载 Agent 配置失败');
+          setAgents(data.items || []);
+          setSelectedAgentId(prev => prev || data.items?.[0]?.id || null);
+        } catch (e) {
+          setAgentStatus(String(e.message || e));
+        } finally {
+          setAgentsLoading(false);
+        }
+      }
+
+      async function saveAgent(agent, draft) {
+        setAgentStatus('保存中...');
+        try {
+          const isNew = !agent?.id;
+          const res = await fetch(isNew ? '/api/agents' : `/api/agents/${agent.id}`, {
+            method:isNew ? 'POST' : 'PUT',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify(draft),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || '保存 Agent 失败');
+          setAgents(prev => isNew ? [...prev, data] : prev.map(item => item.id === data.id ? data : item));
+          setSelectedAgentId(data.id);
+          setEditingNewAgent(false);
+          setAgentStatus(isNew ? '已新增 Agent，下一次审查生效。' : '已保存 Agent 配置，下一次审查生效。');
+        } catch (e) {
+          setAgentStatus(String(e.message || e));
+        }
+      }
+
+      async function deleteAgent(agent) {
+        if (!agent?.id) return;
+        if (!confirm(`确定删除 Agent：${agent.name} 吗？`)) return;
+        setAgentStatus('删除中...');
+        try {
+          const res = await fetch(`/api/agents/${agent.id}`, { method:'DELETE' });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || '删除 Agent 失败');
+          setAgents(prev => {
+            const next = prev.filter(item => item.id !== agent.id);
+            setSelectedAgentId(next[0]?.id || null);
+            return next;
+          });
+          setEditingNewAgent(false);
+          setAgentStatus('已删除 Agent，下一次审查生效。');
+        } catch (e) {
+          setAgentStatus(String(e.message || e));
+        }
+      }
+
+      async function loadConfig() {
+        try {
+          const res = await fetch('/llm-config');
+          if (!res.ok) return;
+          const data = await res.json();
+          setLlmConfig({ provider:data.provider, api_key:'', base_url:data.base_url || '', model:data.model || defaults[data.provider]?.model || '', timeout:data.timeout || 300, api_key_set:data.api_key_set });
+        } catch {}
+      }
+
+      function changeProvider(provider) {
+        setLlmConfig(prev => ({...prev, provider, base_url: prev.provider === provider ? prev.base_url : defaults[provider].base_url, model: prev.provider === provider ? prev.model : defaults[provider].model}));
+        setModelOptions([]); setConfigStatus('');
+      }
+
+      async function refreshModels() {
+        setLoadingModels(true); setConfigStatus('正在刷新模型列表...');
+        try {
+          const res = await fetch('/llm-config/models', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:llmConfig.provider, api_key:llmConfig.api_key.trim() ? llmConfig.api_key : null, base_url:llmConfig.base_url, model:llmConfig.model, timeout:Number(llmConfig.timeout) || 300 }) });
+          const data = await res.json();
+          if (!res.ok) { setConfigStatus(data.detail || '刷新失败'); return; }
+          const models = data.models || []; setModelOptions(models); setConfigStatus(models.length ? `已刷新 ${models.length} 个模型` : '没有获取到模型');
+          if (models.length && !models.includes(llmConfig.model)) setLlmConfig(prev => ({...prev, model:models[0]}));
+        } catch (e) {
+          setConfigStatus(`刷新失败: ${e.message || e}`);
+        } finally {
+          setLoadingModels(false);
+        }
+      }
+
+      async function testConfig() {
+        setTestingModel(true); setConfigStatus('正在测试连接...');
+        try {
+          const res = await fetch('/llm-config/test', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:llmConfig.provider, api_key:llmConfig.api_key.trim() ? llmConfig.api_key : null, base_url:llmConfig.base_url, model:llmConfig.model, timeout:Number(llmConfig.timeout) || 300 }) });
+          const data = await res.json();
+          setConfigStatus(res.ok ? `测试成功: ${data.message || 'OK'}` : (data.detail || '测试失败'));
+        } catch (e) {
+          setConfigStatus(`测试失败: ${e.message || e}`);
+        } finally {
+          setTestingModel(false);
+        }
+      }
+
+      async function saveConfig() {
+        setConfigStatus('保存中...');
+        try {
+          const res = await fetch('/llm-config', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ provider:llmConfig.provider, api_key:llmConfig.api_key.trim() ? llmConfig.api_key : null, base_url:llmConfig.base_url, model:llmConfig.model, timeout:Number(llmConfig.timeout) || 300 }) });
+          const data = await res.json();
+          if (!res.ok) { setConfigStatus(data.detail || '保存失败'); return; }
+          setLlmConfig({ provider:data.provider, api_key:'', base_url:data.base_url || '', model:data.model, timeout:data.timeout, api_key_set:data.api_key_set });
+          setConfigStatus('已保存，下一次审查立即生效。');
+        } catch (e) {
+          setConfigStatus(`保存失败: ${e.message || e}`);
+        }
+      }
+
+      return <>
+        <header>
+          <div>
+            <h1>Agent 管理后台</h1>
+            <div className="muted">管理审查身份、可用 tools 和模型连接配置。</div>
+          </div>
+          <div className="row">
+            <a className="navLink" href="/">返回审查台</a>
+            <a className="muted" href="/docs" target="_blank">API Docs</a>
+          </div>
+        </header>
+        <main className="shell">
+          <aside className="side">
+            <button className={section === 'agents' ? 'active' : ''} onClick={() => setSection('agents')}>Agent 身份</button>
+            <button className={section === 'models' ? 'active' : ''} onClick={() => setSection('models')}>模型配置</button>
+          </aside>
+          <div>
+            {section === 'agents' && <AgentAdminView agents={agents} selectedAgentId={selectedAgentId} editingNewAgent={editingNewAgent} loading={agentsLoading} status={agentStatus} onRefresh={loadAgents} onSelect={id=>{setSelectedAgentId(id); setEditingNewAgent(false);}} onCreate={()=>{setEditingNewAgent(true); setSelectedAgentId(null);}} onSave={saveAgent} onDelete={deleteAgent} />}
+            {section === 'models' && <ModelConfigView llmConfig={llmConfig} setLlmConfig={setLlmConfig} modelOptions={modelOptions} loadingModels={loadingModels} testingModel={testingModel} status={configStatus} onProvider={changeProvider} onRefresh={refreshModels} onTest={testConfig} onSave={saveConfig} />}
+          </div>
+        </main>
+      </>;
+    }
+
+    function AgentAdminView({agents, selectedAgentId, editingNewAgent, loading, status, onRefresh, onSelect, onCreate, onSave, onDelete}) {
+      const selected = editingNewAgent ? null : agents.find(agent => agent.id === selectedAgentId);
+      return <section className="panel">
+        <div className="toolbar">
+          <div>
+            <h2>Agent 列表</h2>
+            <div className="muted">在列表中选择 Agent 后编辑；新增 Agent 默认建议使用模型 Agent 类型。</div>
+          </div>
+          <div className="row">
+            <button onClick={onCreate}>新增 Agent</button>
+            <button className="light" disabled={loading} onClick={onRefresh}>{loading ? '加载中...' : '刷新配置'}</button>
+          </div>
+        </div>
+        {status && <div className="statusBox">{status}</div>}
+        {!agents.length && <div className="empty">暂无 Agent 配置。后端启动时会自动初始化默认身份。</div>}
+        <div className="agentLayout">
+          <div>
+            <table className="agentTable">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>类型</th>
+                  <th>状态</th>
+                  <th>Tools</th>
+                </tr>
+              </thead>
+              <tbody>
+                {agents.map(agent => <tr key={agent.id} className={agent.id === selectedAgentId ? 'selected' : ''} onClick={()=>onSelect(agent.id)}>
+                  <td>
+                    <div className="agentName">{agent.name}</div>
+                    <div className="meta">{agent.agent_key}</div>
+                  </td>
+                  <td>{agent.kind === 'llm' ? '模型' : '规则'}</td>
+                  <td>{agent.enabled ? <span className="pill">启用</span> : <span className="pill gray">停用</span>}</td>
+                  <td>{agent.tools.length}</td>
+                </tr>)}
+              </tbody>
+            </table>
+          </div>
+          <AgentEditor agent={selected} isNew={editingNewAgent} onSave={onSave} onDelete={onDelete} />
+        </div>
+      </section>;
+    }
+
+    function AgentEditor({agent, isNew, onSave, onDelete}) {
+      const blank = React.useMemo(() => ({
+        agent_key: `custom_agent_${Date.now()}`,
+        name: 'New LLM Agent',
+        role: '描述这个 Agent 的审查职责。',
+        kind: 'llm',
+        enabled: true,
+        tools: [],
+        system_prompt: '你是一个代码审查 Agent，只输出自己职责范围内的问题。',
+      }), [isNew]);
+      const source = isNew ? blank : agent;
+      const [draft, setDraft] = React.useState(source || blank);
+      React.useEffect(() => {
+        setDraft(source || blank);
+      }, [source?.id, isNew]);
+      if (!source) return <div className="empty">选择左侧 Agent，或点击新增 Agent。</div>;
+
+      const catalog = toolCatalog[draft.agent_key] || [];
+      const customTools = draft.tools.filter(tool => !catalog.some(([id]) => id === tool));
+      function toggleTool(tool) {
+        setDraft(prev => {
+          const exists = prev.tools.includes(tool);
+          return {...prev, tools: exists ? prev.tools.filter(item => item !== tool) : [...prev.tools, tool]};
+        });
+      }
+      function setCustomTools(value) {
+        const selected = draft.tools.filter(tool => catalog.some(([id]) => id === tool));
+        const custom = value.split(',').map(item => item.trim()).filter(Boolean);
+        setDraft(prev => ({...prev, tools:[...selected, ...custom]}));
+      }
+
+      return <div className="editor">
+        <div className="toolbar">
+          <div>
+            <h3>{isNew ? '新增 Agent' : '编辑 Agent'}</h3>
+            <div className="meta">{draft.kind === 'llm' ? '模型 Agent' : '规则 Agent'} · {draft.agent_key}</div>
+          </div>
+          <label className="row" style={{margin:0}}>
+            <input type="checkbox" checked={draft.enabled} onChange={e=>setDraft(prev=>({...prev, enabled:e.target.checked}))} style={{width:'auto'}} />
+            启用
+          </label>
+        </div>
+        <label>Agent Key</label>
+        <input disabled={!isNew} value={draft.agent_key || ''} onChange={e=>setDraft(prev=>({...prev, agent_key:e.target.value.trim()}))} />
+        <label>类型</label>
+        <select disabled={!isNew} value={draft.kind} onChange={e=>setDraft(prev=>({...prev, kind:e.target.value}))}>
+          <option value="llm">模型 Agent</option>
+          <option value="rule">规则 Agent</option>
+        </select>
+        {draft.kind === 'rule' && !toolCatalog[draft.agent_key] && <div className="toolHint">自定义规则 Agent 需要后端实现同名规则映射，否则不会执行本地扫描。新增自定义身份建议选择模型 Agent。</div>}
+        <label>身份名称</label>
+        <input value={draft.name} onChange={e=>setDraft(prev=>({...prev, name:e.target.value}))} />
+        <label>身份职责</label>
+        <textarea value={draft.role} onChange={e=>setDraft(prev=>({...prev, role:e.target.value}))} />
+        <label>Tools</label>
+        <div className="toolCatalog">
+          {catalog.map(([id, label]) => <button type="button" key={id} className={'toolChip '+(draft.tools.includes(id) ? 'active' : '')} onClick={()=>toggleTool(id)}>{id}<br/><span className="muted small">{label}</span></button>)}
+        </div>
+        {draft.kind === 'llm' && <div className="toolHint">这些模型 tools 当前是能力边界，不是独立执行器；规则 Agent 的 tools 才会直接触发本地扫描逻辑。</div>}
+        <label>自定义 Tools</label>
+        <input value={customTools.join(', ')} onChange={e=>setCustomTools(e.target.value)} placeholder="用英文逗号分隔" />
+        <div className="row" style={{marginTop:8}}>
+          {draft.tools.map(tool => <span className="pill gray" key={tool}>{tool}</span>)}
+        </div>
+        {draft.kind === 'llm' && <>
+          <label>System Prompt</label>
+          <textarea value={draft.system_prompt} onChange={e=>setDraft(prev=>({...prev, system_prompt:e.target.value}))} />
+        </>}
+        <div className="row" style={{marginTop:12}}>
+          <button onClick={()=>onSave(source, draft)}>{isNew ? '创建 Agent' : '保存 Agent'}</button>
+          {!isNew && <button className="danger" onClick={()=>onDelete(source)}>删除</button>}
+        </div>
+      </div>;
+    }
+
+    function ModelConfigView({llmConfig,setLlmConfig,modelOptions,loadingModels,testingModel,status,onProvider,onRefresh,onTest,onSave}) {
+      return <section className="panel">
+        <div className="toolbar">
+          <div>
+            <h2>模型配置</h2>
+            <div className="muted">配置模型后，启用的模型 Agent 会在下一次审查中参与并输出按身份建议。</div>
+          </div>
+          <button className="light" onClick={onTest} disabled={testingModel || !llmConfig.model.trim()}>{testingModel ? '测试中...' : '测试连接'}</button>
+        </div>
+        {status && <div className="statusBox">{status}</div>}
+        <div className="configGrid">
+          <div>
+            <label>服务商</label>
+            <select value={llmConfig.provider} onChange={e=>onProvider(e.target.value)}>
+              <option value="claude">Claude / Anthropic Messages API</option>
+              <option value="deepseek">DeepSeek / OpenAI Chat API</option>
+              <option value="newapi">NewAPI / OpenAI Chat API 中转</option>
+            </select>
+            <label>Base URL</label>
+            <input value={llmConfig.base_url} onChange={e=>setLlmConfig(p=>({...p, base_url:e.target.value}))} placeholder={defaults[llmConfig.provider].base_url || 'Claude 官方可留空；Anthropic 兼容中转填写 base_url'} />
+            <div className="muted small" style={{marginTop:6}}>Claude 选项会调用 Anthropic `/v1/messages`；如果中转站只支持 `/v1/chat/completions`，请选择 NewAPI。</div>
+            <div className="row" style={{justifyContent:'space-between', marginTop:12}}>
+              <label style={{margin:0}}>模型</label>
+              <button className="light" disabled={loadingModels} onClick={onRefresh}>{loadingModels ? '刷新中...' : '刷新模型列表'}</button>
+            </div>
+            {modelOptions.length ? <select value={llmConfig.model} onChange={e=>setLlmConfig(p=>({...p, model:e.target.value}))}>{modelOptions.map(m=><option key={m} value={m}>{m}</option>)}</select> : <input value={llmConfig.model} onChange={e=>setLlmConfig(p=>({...p, model:e.target.value}))} />}
+            <label>API Key</label>
+            <input type="password" value={llmConfig.api_key} onChange={e=>setLlmConfig(p=>({...p, api_key:e.target.value}))} placeholder={llmConfig.api_key_set ? '已配置，留空则不修改' : '请输入 API Key'} />
+            <label>超时秒数</label>
+            <input type="number" min="1" value={llmConfig.timeout} onChange={e=>setLlmConfig(p=>({...p, timeout:Number(e.target.value)}))} />
+            <div className="row" style={{marginTop:14}}>
+              <button onClick={onSave}>保存模型配置</button>
+            </div>
+          </div>
+          <div className="empty">
+            <div className="pill">当前服务商：{llmConfig.provider}</div>
+            <p>API Key 状态：{llmConfig.api_key_set ? '已配置' : '未配置'}</p>
+            <p>模型：{llmConfig.model || '未设置'}</p>
+          </div>
+        </div>
+      </section>;
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
