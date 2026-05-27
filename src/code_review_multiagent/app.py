@@ -416,12 +416,26 @@ async def github_webhook(
     )
 
 
-def _persist_report(report: ReviewReport, events=None) -> None:
+def _store_unavailable_detail(error: Exception | str | None = None) -> str:
+    """Return a browser-safe message when the optional review store is unavailable."""
+    return "审查记录服务暂不可用，项目审查仍可继续；本次结果将只在当前页面展示，不会写入历史记录。"
+
+
+def safe_persist_report(report: ReviewReport, events=None, persist_func=save_review_record) -> bool:
+    """Best-effort persistence: keep review UX usable even when MySQL is down."""
     try:
-        record_id = save_review_record(report, events)
-    except StoreUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc))
+        record_id = persist_func(report, events)
+    except (StoreUnavailableError, HTTPException):
+        report.metadata["record_status"] = "unavailable"
+        report.metadata["record_warning"] = _store_unavailable_detail()
+        return False
     report.metadata["record_id"] = record_id
+    report.metadata["record_status"] = "saved"
+    return True
+
+
+def _persist_report(report: ReviewReport, events=None) -> None:
+    safe_persist_report(report, events)
 
 
 def _update_review_job(job_id: str, **updates) -> None:
@@ -496,6 +510,14 @@ async def _stream_review_run(
             summary = payload.get("summary", {})
             total = summary.get("total_findings", 0)
             yield sse({"type": "report", "report": payload})
-            yield sse({"type": "complete", "message": f"审查完成：共发现 {total} 个问题，记录已写入 MySQL。"})
+            if payload.get("metadata", {}).get("record_status") == "unavailable":
+                yield sse(
+                    {
+                        "type": "complete",
+                        "message": f"审查完成：共发现 {total} 个问题。审查记录服务暂不可用，本次结果仅在当前页面展示。",
+                    }
+                )
+            else:
+                yield sse({"type": "complete", "message": f"审查完成：共发现 {total} 个问题，记录已写入 MySQL。"})
         else:
             yield sse({"type": "error", "message": payload})

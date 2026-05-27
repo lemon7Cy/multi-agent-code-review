@@ -138,7 +138,7 @@
           if (!res.ok) throw new Error(data.detail || '加载审查记录失败');
           setHistory(data);
         } catch (e) {
-          setError(String(e.message || e));
+          setError(_friendlyError(e));
         } finally {
           setHistoryLoading(false);
         }
@@ -217,7 +217,7 @@
             setEvents(prev => [...prev, event]);
             if (event.type === 'report') setReport(event.report);
             if (event.type === 'error') setError(event.message || '审查失败');
-            if (event.type === 'complete') setStatus('审查完成，记录已写入 MySQL。');
+            if (event.type === 'complete') setStatus(event.message || '审查完成。');
           }
         }
       }
@@ -426,6 +426,14 @@
     function formatTime(value) {
       if (!value) return '';
       return value.replace('T', ' ');
+    }
+
+    function _friendlyError(error) {
+      const message = String(error?.message || error || '');
+      if (message.includes('MySQL 审查记录库不可用') || message.includes('审查记录服务暂不可用')) {
+        return '审查记录服务暂不可用，项目审查仍可继续；历史记录、管理后台可能暂时无法使用。';
+      }
+      return message;
     }
 
     async function copyMarkdown(markdown) {
