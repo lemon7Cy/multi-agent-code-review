@@ -16,6 +16,7 @@ from .agents.llm_tooluse_agent import build_tooluse_agents
 from .blackboard import Blackboard
 from .message_bus import AgentMessage, MessageBus
 from .metrics import collector as metrics_collector
+from .critic import Critic
 from .models import AgentReview, Conflict, Finding, ReviewEvent, ReviewReport, ReviewRequest, ReviewSummary, SEVERITY_RANK, SEVERITY_ZH, Severity
 from .review_store import StoreUnavailableError, list_enabled_agent_configs
 
@@ -106,7 +107,8 @@ class ReviewOrchestrator:
         bus.consume("Orchestrator", topic="review.done")
         agent_reviews = blackboard.read_all_reviews()
         findings = self._deduplicate(blackboard.read_all_findings())
-        findings = self._sort_findings(findings)
+        critic_result = Critic().review(request, findings)
+        findings = self._sort_findings(critic_result.findings)
         conflicts = self._detect_and_arbitrate(findings)
         summary = self._build_summary(findings)
         markdown = self._render_markdown(request, summary, findings, conflicts, agent_reviews)
@@ -134,6 +136,7 @@ class ReviewOrchestrator:
                 "agent_count": len(active_agents),
                 "llm_enabled": any(review.agent.startswith("LLM ") for review in agent_reviews),
                 "file_count": len(request.files),
+                "critic": critic_result.metadata,
             },
         )
         metrics_collector.finish_review(review_metrics, summary.total_findings)

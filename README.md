@@ -4,16 +4,16 @@
 
 ## 核心能力
 
-- **Multi-Agent 编排**：Security / Performance / Style 三个专职 Agent 并行审查。
-- **角色专业化**：每个 Agent 有独立职责和工具边界。
-- **消息通信**：内置 MessageBus，MVP 使用内存实现，后续可替换 Redis Stream / Celery / Kafka。
-- **Blackboard 汇总**：Agent 输出写入共享 artifact store，由 Orchestrator 统一汇总。
-- **冲突仲裁**：实现安全优先的仲裁策略，例如“批量查询优化必须服从 SQL 参数化约束”。
-- **GitHub Webhook**：提供 `/api/github/webhook` 入口，支持签名校验和 PR payload 演示。
-- **Web 工作台**：浏览器打开根路径即可上传项目、查看审查记录和按 Agent 身份拆分的建议。
-- **模型 API 接入**：配置模型后，模型 Agent 会自动参与同一次多 Agent 审查；未配置时仍由基础专职 Agent 完成审查。
-- **LLM Tool Use 审查**：模型 Agent 可调用 grep、函数分析、SQL 安全检查等工具，多轮收集证据后输出结构化 Finding。
-- **项目压缩包审查**：支持上传 `.zip`，后端自动解压、过滤代码文件、批量审查整个项目。
+- **Diff-aware PR 审查**：解析 unified diff，识别 changed files / hunks / changed lines，只对 PR 相关改动生成行级建议。
+- **Planner-driven Multi-Agent 编排**：先根据改动文件、语言和风险信号生成 Security / Performance / Maintainability / Test Coverage 任务，再分发给专职 Agent。
+- **角色专业化**：Security、Performance、Maintainability、Test Coverage 等 Agent 有独立职责和工具边界。
+- **LLM Tool Use 审查**：模型 Agent 可调用 grep、函数分析、SQL 安全检查等工具，多轮收集证据后输出结构化 Finding；无 API Key 时规则 Agent 保证演示稳定。
+- **Critic 复核层**：在 Orchestrator 汇总后对 Finding 做 PR 范围校验、误报抑制、置信度保留和冲突仲裁。
+- **GitHub Webhook / PR Comment**：提供 `/api/github/webhook` 入口，支持签名校验、PR changed files 拉取、summary comment，并提供 inline review comment payload 生成器。
+- **异步审查任务**：提供 `/api/reviews/jobs`，支持 queued/running/completed/failed 状态和事件追踪，适配长耗时 LLM review。
+- **Web 工作台**：浏览器打开根路径即可上传项目、查看审查记录、Agent 轨迹和按身份拆分的建议。
+- **消息通信与 Blackboard**：内置 MessageBus 和 Blackboard，Agent 输出统一写入共享 artifact store，由 Orchestrator 统一汇总。
+- **审查历史与指标**：支持 MySQL review history、Prometheus metrics、Docker Compose 部署。
 
 ## 目录结构
 
@@ -22,18 +22,23 @@ src/
   code_review_multiagent/
     agents/                 # 专职 Agent 和规则工具
       llm_tooluse_agent.py  # LLM 多轮 tool_use 审查 Agent
-    app.py                  # FastAPI 应用
+    app.py                  # FastAPI 应用，同步/异步审查 API
     blackboard.py           # 共享结果黑板
+    commenter.py            # GitHub inline / summary comment payload 生成
+    critic.py               # Finding 复核、PR 范围过滤和误报抑制
+    diff_parser.py          # unified diff 解析为文件/hunk/changed line
     github.py               # GitHub Webhook 解析与签名校验
     llm_config.py           # 运行时模型配置，持久化到 llm_runtime_config.json
     llm_client.py           # Claude Anthropic API / OpenAI-compatible 中转调用
     message_bus.py          # Agent 消息总线
     models.py               # ReviewRequest / Finding / ReviewReport schema
-    orchestrator.py         # Orchestrator 汇总、去重、仲裁
-    project_loader.py       # zip 项目包解析、过滤、安全限制
+    orchestrator.py         # Orchestrator 汇总、Critic 复核、去重、仲裁
+    planner.py              # 根据 diff 风险信号生成专职 Agent 任务
+    project_loader.py       # zip 项目解析、过滤、安全限制
+    review_context.py       # 将 ReviewRequest.files 与 diff changed lines 关联
     web/index.html          # React CDN 前端面板
   run_review.py             # 本地 CLI 审查入口
-tests/                      # unittest 测试
+tests/                      # unittest/pytest 测试
 ```
 
 ## 快速运行

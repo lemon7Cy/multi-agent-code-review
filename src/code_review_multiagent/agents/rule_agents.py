@@ -6,6 +6,7 @@ from typing import Callable
 
 from .base import RuleContext, find_line, infer_language
 from ..models import AgentReview, Finding, ReviewFile, Severity
+from ..review_context import is_test_path
 
 Rule = Callable[[str, RuleContext], Finding | None]
 ToolRule = tuple[str, Rule]
@@ -158,6 +159,62 @@ def style_missing_error_handling(agent: str, ctx: RuleContext) -> Finding | None
     return None
 
 
+PRODUCTION_CODE_RE = re.compile(r"\b(def|class|function|export|public|private|func)\b")
+
+
+def _module_stem(path: str) -> str:
+    name = path.replace("\\", "/").rsplit("/", 1)[-1]
+    if "." in name:
+        name = name.rsplit(".", 1)[0]
+    if name.startswith("test_"):
+        name = name[5:]
+    if name.endswith("_test"):
+        name = name[:-5]
+    return name.lower().replace("-", "_")
+
+
+@dataclass
+class TestCoverageAgent:
+    name: str = "Test Coverage Agent"
+    role: str = "关注生产代码变更是否具备相邻或命名匹配的测试覆盖。"
+
+    def review(self, files: list[ReviewFile]) -> AgentReview:
+        test_stems = {_module_stem(file.path) for file in files if is_test_path(file.path)}
+        findings: list[Finding] = []
+        notes: list[str] = []
+
+        for file in files:
+            if is_test_path(file.path):
+                continue
+            language = infer_language(file.path, file.language)
+            if language not in {"python", "javascript", "typescript", "java", "go"}:
+                continue
+            if not PRODUCTION_CODE_RE.search(file.content):
+                continue
+            module = _module_stem(file.path)
+            if module in test_stems:
+                continue
+            lines = file.content.splitlines()
+            finding = Finding(
+                agent=self.name,
+                rule_id="TEST-MISSING-COVERAGE",
+                category="测试覆盖缺失",
+                severity=Severity.MEDIUM,
+                file_path=file.path,
+                line_start=find_line(lines, "def ") or find_line(lines, "function") or 1,
+                evidence=f"生产代码 `{file.path}` 有逻辑变更，但未发现命名匹配的测试文件。",
+                impact="缺少回归测试会降低重构和发布信心，易遗漏边界条件或异常路径。",
+                recommendation="为本次变更补充对应单元/集成测试；建议使用 test_模块名 或 模块名.test/spec 命名。",
+                confidence=0.74,
+            )
+            finding.fingerprint = finding.stable_fingerprint()
+            findings.append(finding)
+
+        if not findings and test_stems:
+            notes.append("已发现与生产代码命名匹配或相关的测试覆盖。")
+        return AgentReview(agent=self.name, role=self.role, findings=findings, notes=notes)
+
+
 @dataclass
 class RuleBasedAgent:
     name: str
@@ -205,6 +262,11 @@ RULE_AGENT_BUILDERS: dict[str, tuple[str, str, list[ToolRule]]] = {
             ("error_handling_checker", style_missing_error_handling),
         ],
     ),
+    "test_coverage": (
+        "Test Coverage Agent",
+        "关注生产代码变更是否具备相邻或命名匹配的测试覆盖。",
+        [],
+    ),
 }
 
 
@@ -214,10 +276,14 @@ def build_default_agents(configs: list[object] | None = None) -> list[RuleBasedA
         for item in configs:
             if getattr(item, "kind", "") != "rule" or not getattr(item, "enabled", False):
                 continue
-            builder = RULE_AGENT_BUILDERS.get(str(getattr(item, "agent_key", "")))
+            agent_key = str(getattr(item, "agent_key", ""))
+            builder = RULE_AGENT_BUILDERS.get(agent_key)
             if not builder:
                 continue
             _, _, tool_rules = builder
+            if agent_key == "test_coverage":
+                agents.append(TestCoverageAgent(name=str(getattr(item, "name")), role=str(getattr(item, "role"))))
+                continue
             enabled_tools = set(getattr(item, "tools", []) or [])
             rules = [rule for tool, rule in tool_rules if not enabled_tools or tool in enabled_tools]
             agents.append(
@@ -229,7 +295,10 @@ def build_default_agents(configs: list[object] | None = None) -> list[RuleBasedA
             )
         return agents
 
-    return [
+    agents: list[RuleBasedAgent] = [
         RuleBasedAgent(name=name, role=role, rules=[rule for _, rule in tool_rules])
-        for name, role, tool_rules in RULE_AGENT_BUILDERS.values()
+        for key, (name, role, tool_rules) in RULE_AGENT_BUILDERS.items()
+        if key != "test_coverage"
     ]
+    agents.append(TestCoverageAgent())
+    return agents

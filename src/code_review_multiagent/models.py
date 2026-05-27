@@ -43,6 +43,7 @@ class ReviewRequest(BaseModel):
     pr_number: int | None = None
     title: str | None = None
     files: list[ReviewFile]
+    diff: str | None = Field(default=None, description="Optional unified diff for PR-aware review.")
 
 
 class ReviewEvent(BaseModel):

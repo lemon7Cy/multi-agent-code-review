@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Thread
+from threading import Lock, Thread
 from typing import Callable
+from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,6 +54,8 @@ app.add_middleware(
 )
 
 orchestrator = ReviewOrchestrator()
+_review_jobs: dict[str, dict] = {}
+_review_jobs_lock = Lock()
 
 if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
@@ -184,6 +188,34 @@ def create_review(request: ReviewRequest) -> ReviewReport:
     report = run.report
     _persist_report(report, run.events)
     return report
+
+
+@app.post("/api/reviews/jobs", status_code=202)
+def create_review_job(request: ReviewRequest) -> dict[str, str]:
+    if not request.files:
+        raise HTTPException(status_code=400, detail="files is required")
+    job_id = uuid4().hex
+    with _review_jobs_lock:
+        _review_jobs[job_id] = {
+            "job_id": job_id,
+            "status": "queued",
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "updated_at": datetime.now().isoformat(timespec="seconds"),
+            "events": [],
+            "report": None,
+            "error": None,
+        }
+    Thread(target=_run_review_job, args=(job_id, request), daemon=True).start()
+    return {"job_id": job_id, "status": "queued"}
+
+
+@app.get("/api/reviews/jobs/{job_id}")
+def get_review_job(job_id: str) -> dict:
+    with _review_jobs_lock:
+        job = _review_jobs.get(job_id)
+        if job is None:
+            raise HTTPException(status_code=404, detail="review job not found")
+        return dict(job)
 
 
 @app.post("/api/reviews/upload", response_model=ReviewReport)
@@ -390,6 +422,38 @@ def _persist_report(report: ReviewReport, events=None) -> None:
     except StoreUnavailableError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     report.metadata["record_id"] = record_id
+
+
+def _update_review_job(job_id: str, **updates) -> None:
+    with _review_jobs_lock:
+        job = _review_jobs.get(job_id)
+        if job is None:
+            return
+        job.update(updates)
+        job["updated_at"] = datetime.now().isoformat(timespec="seconds")
+
+
+def _run_review_job(job_id: str, request: ReviewRequest) -> None:
+    events: list[dict] = []
+
+    def on_event(event):
+        payload = event.model_dump(mode="json")
+        events.append(payload)
+        _update_review_job(job_id, status="running", events=list(events))
+
+    try:
+        _update_review_job(job_id, status="running")
+        run = orchestrator.review_with_events(request, on_event=on_event)
+        report = run.report
+        _persist_report(report, run.events)
+        _update_review_job(
+            job_id,
+            status="completed",
+            report=report.model_dump(mode="json"),
+            events=[event.model_dump(mode="json") for event in run.events] or events,
+        )
+    except Exception as exc:
+        _update_review_job(job_id, status="failed", error=str(exc), events=events)
 
 
 async def _stream_review_run(

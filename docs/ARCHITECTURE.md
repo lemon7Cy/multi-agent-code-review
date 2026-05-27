@@ -2,35 +2,39 @@
 
 ```mermaid
 flowchart LR
-  GH["GitHub Webhook"] --> API["FastAPI"]
-  API --> GHA["GitHub API: changed files"]
-  API --> O["Review Orchestrator"]
+  GH["GitHub Webhook / ZIP Upload"] --> API["FastAPI"]
+  API --> Diff["Diff Parser"]
+  Diff --> Ctx["Review Context"]
+  Ctx --> Plan["Review Planner"]
+  Plan --> O["Review Orchestrator"]
   O --> R1["Rule Agents"]
   O --> R2["LLM Tool Use Agents"]
+  O --> R3["Test Coverage Agent"]
   R1 --> BB["Blackboard"]
   R2 --> BB
-  BB --> O
+  R3 --> BB
+  BB --> Critic["Critic / Scope Filter"]
+  Critic --> O
   O --> DB[("MySQL review history")]
-  O --> PR["PR Comment"]
+  O --> PR["GitHub Summary / Inline Comments"]
   O --> UI["Web Console"]
   O --> M["Prometheus Metrics"]
+  API --> Jobs["Async Review Jobs"]
 ```
 
 ## 关键设计
 
-- Orchestrator 负责调度、合并、去重、排序和冲突仲裁，不直接做具体审查。
-- Agent 输出统一 `Finding` schema，便于排序、展示和 PR 评论。
-- 规则 Agent 提供稳定兜底，LLM Tool Use Agent 提供语义审查。
-- MessageBus 默认内存实现，可通过 `MESSAGE_BUS_BACKEND=redis` 切到 Redis Stream。
-
-## GitHub 集成
-
-- Webhook 先校验 `X-Hub-Signature-256`。
-- payload 带 `review_files` 时直接审查，便于本地测试。
-- 配置 `GITHUB_TOKEN` 后，会调用 GitHub API 拉取 PR changed files，并把 Markdown 报告评论回 PR。
+- **Diff-aware review**：`diff_parser.py` 解析 unified diff，`review_context.py` 将 changed lines 映射到 `ReviewRequest.files`，让系统知道本次 PR 真正改了哪些位置。
+- **Planner-driven orchestration**：`planner.py` 根据改动文件、语言和风险信号生成 Security / Performance / Maintainability / Test Coverage 任务，而不是把所有文件无差别交给所有 Agent。
+- **Specialist Agents**：规则 Agent 提供稳定兜底，LLM Tool Use Agent 提供语义审查，Test Coverage Agent 专门识别生产代码变更缺少测试的问题。
+- **Blackboard + Critic**：Agent 输出统一 `Finding` schema 写入 Blackboard；`critic.py` 在最终汇总前做 PR 范围校验、误报抑制和置信度保留。
+- **GitHub integration**：Webhook 先校验 `X-Hub-Signature-256`；配置 `GITHUB_TOKEN` 后可拉取 PR changed files 并生成 summary / inline comment payload。
+- **Async review jobs**：`POST /api/reviews/jobs` 返回 job id，后台线程执行审查，`GET /api/reviews/jobs/{job_id}` 查询 queued/running/completed/failed 状态、事件和报告。
 
 ## 生产边界
 
 - PR 评论失败不影响审查记录保存。
 - LLM 调用失败不影响规则 Agent 输出。
 - 大仓库审查通过 zip/file 限制和 raw file 字符上限控制成本。
+- 当前异步任务使用进程内存储，适合演示；生产可替换 Redis/Celery/数据库任务表。
+- Critic 默认只保留 changed line 上的 diff finding，偏保守；生产可改为 hunk 上下文窗口策略。
