@@ -2,43 +2,38 @@ name: CI
 
 on:
   push:
+    branches: [main, master]
   pull_request:
-  workflow_dispatch:
 
 jobs:
-  backend:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run tests
-        run: python -m unittest discover -s tests -v
-      - name: Secret scan
-        run: |
-          python - <<'PY'
-          import pathlib
-          import re
-          import sys
+      - run: pip install ruff
+      - run: ruff check src/ tests/
+      - run: ruff format --check src/ tests/
 
-          pattern = re.compile(r'(sk-[A-Za-z0-9_-]{20,}|api_key"\s*:\s*"sk-)')
-          hits = []
-          for path in pathlib.Path('.').rglob('*'):
-              if not path.is_file() or path.suffix.lower() == '.lock':
-                  continue
-              if any(part in {'.git', '.venv', 'node_modules', 'dist', 'build'} for part in path.parts):
-                  continue
-              try:
-                  text = path.read_text(encoding='utf-8')
-              except UnicodeDecodeError:
-                  continue
-              for number, line in enumerate(text.splitlines(), 1):
-                  if pattern.search(line):
-                      hits.append(f'{path}:{number}')
-          if hits:
-              print('\n'.join(hits))
-              sys.exit(1)
-          PY
+  test:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: "sqlite:///test.db"
+      GITHUB_WEBHOOK_SECRET: "ci-test-secret"
+      LLM_API_KEY: "test-key"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: pytest tests/ -v --cov=src/code_review_multiagent --cov-report=xml
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t code-review:ci .

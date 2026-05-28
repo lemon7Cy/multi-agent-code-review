@@ -40,16 +40,23 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "web"
 
+from .config import get_settings
+from .log import get_logger, setup_logging
+
+_settings = get_settings()
+setup_logging(_settings.log_level, _settings.log_format)
+logger = get_logger(__name__)
+
 app = FastAPI(
     title="Multi-Agent Code Review System",
     description="Security / Performance / Style agents coordinated by an Orchestrator.",
-    version="0.1.0",
+    version="2.0.0",
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_settings.cors_origin_list,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -81,8 +88,17 @@ def admin() -> FileResponse:
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "service": "multi-agent-code-review"}
+def health() -> dict:
+    from sqlalchemy import text
+    from .review_store import _engine
+    db_ok = True
+    try:
+        if _engine:
+            with _engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+    except Exception:
+        db_ok = False
+    return {"status": "ok" if db_ok else "degraded", "db": db_ok, "service": "multi-agent-code-review"}
 
 
 @app.get("/metrics", response_class=PlainTextResponse)

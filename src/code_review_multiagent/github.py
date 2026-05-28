@@ -12,10 +12,12 @@ from .models import ReviewFile, ReviewRequest
 
 
 def verify_github_signature(raw_body: bytes, signature_header: str | None, secret: str | None = None) -> bool:
-    """Verify X-Hub-Signature-256. If no secret is configured, accept for local demo."""
+    """Verify X-Hub-Signature-256. Rejects if no secret is configured in production."""
     webhook_secret = secret if secret is not None else os.getenv("GITHUB_WEBHOOK_SECRET", "")
     if not webhook_secret:
-        return True
+        from .log import get_logger
+        get_logger(__name__).warning("github_webhook_no_secret_configured")
+        return False
     if not signature_header or not signature_header.startswith("sha256="):
         return False
     expected = "sha256=" + hmac.new(webhook_secret.encode("utf-8"), raw_body, hashlib.sha256).hexdigest()
