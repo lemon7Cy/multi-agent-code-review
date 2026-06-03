@@ -1,60 +1,60 @@
 <div align="center">
 
-# Multi-Agent Code Review
+# 多 Agent 协作代码审查系统
 
-**A multi-agent pull request review system with diff awareness, tool use, review orchestration, and GitHub webhook support.**
+**面向 Pull Request 和项目压缩包的多角色代码审查、证据收集与结果仲裁平台**
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-review%20API-009688?logo=fastapi&logoColor=white)
-![GitHub](https://img.shields.io/badge/GitHub-PR%20webhook-181717?logo=github&logoColor=white)
-![LLM](https://img.shields.io/badge/LLM-tool%20use-7C3AED)
-![CI](https://img.shields.io/badge/CI-pytest%20%2B%20build-2563EB)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-Webhook-181717?logo=github&logoColor=white)
+![LLM](https://img.shields.io/badge/LLM-%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8-7C3AED)
+![CI](https://img.shields.io/badge/CI-pytest-2563EB)
 
 </div>
 
-## Overview
+## 项目简介
 
-Multi-Agent Code Review is an engineering-focused review service for pull requests and uploaded project archives. It parses diffs, plans review work by risk area, routes tasks to specialized agents, filters low-confidence findings, and returns a structured report that can be surfaced in a web console or posted back to GitHub.
+这是一个面向代码审查场景的多 Agent 系统。它会解析 PR diff 或上传的项目压缩包，根据风险类型规划审查任务，再交给安全、性能、可维护性、测试覆盖等专职 Agent 处理。Orchestrator 负责汇总结果、去重、过滤低置信度建议，并生成结构化审查报告。
 
-The system is designed to run without an LLM key for deterministic demos. When a model provider is configured, LLM tool-use agents join the same workflow and collect evidence through bounded tools instead of producing unconstrained free-form review text.
+项目支持无模型 Key 的规则模式，便于本地稳定运行；配置模型后，LLM Agent 会通过受控工具收集证据，而不是直接生成不可追踪的自由文本。
 
-## Core Capabilities
+## 核心能力
 
-- Diff-aware review that maps findings back to changed files, hunks, and line numbers.
-- Planner-driven orchestration across Security, Performance, Maintainability, and Test Coverage agents.
-- Rule-based fallback agents for stable local execution without API credentials.
-- Optional LLM tool-use review with grep, function analysis, and SQL safety checks.
-- Critic layer for PR-scope validation, duplicate suppression, confidence filtering, and conflict arbitration.
-- GitHub pull request webhook endpoint with signature verification and comment payload generation.
-- Async review jobs with queued/running/completed/failed states and event tracing.
-- Web console for uploading project archives, viewing agent traces, and reading grouped findings.
-- Review history, Prometheus metrics, MySQL persistence, and Docker Compose deployment.
+- 解析 unified diff，定位 changed files、hunks 和 changed lines。
+- 按文件类型与风险信号规划 Security、Performance、Maintainability、Test Coverage 审查任务。
+- 内置规则 Agent，无需 API Key 也能完成稳定演示。
+- 支持 LLM 工具调用，通过 grep、函数分析、SQL 安全检查等工具收集证据。
+- Critic 复核层负责 PR 范围校验、误报抑制、去重和冲突仲裁。
+- 支持 GitHub PR webhook、签名校验和评论 payload 生成。
+- 支持异步审查任务，记录 queued/running/completed/failed 状态和事件轨迹。
+- Web 工作台支持上传项目、查看审查历史、Agent 轨迹和分组建议。
+- 支持审查历史、Prometheus 指标、MySQL 持久化和 Docker Compose 部署。
 
-## Architecture
+## 项目结构
 
 ```text
 src/
   code_review_multiagent/
-    agents/                 Specialized rule and LLM agents
-    app.py                  FastAPI application
-    blackboard.py           Shared artifact store
-    commenter.py            GitHub summary and inline comment payloads
-    critic.py               Finding validation and deduplication
-    diff_parser.py          Unified diff parser
-    github.py               Webhook parsing and signature verification
-    llm_client.py           Anthropic and OpenAI-compatible clients
-    llm_config.py           Runtime model configuration
-    message_bus.py          Agent message bus
-    models.py               Request, finding, and report schemas
-    orchestrator.py         Task dispatch, aggregation, and arbitration
-    planner.py              Risk-aware task planner
-    project_loader.py       Project archive parsing and safety limits
-    review_context.py       Diff-to-file context mapping
-  run_review.py             Local CLI entry point
-tests/                      Unit and integration tests
+    agents/                 专职规则 Agent 与 LLM Agent
+    app.py                  FastAPI 应用入口
+    blackboard.py           共享结果黑板
+    commenter.py            GitHub summary / inline comment payload
+    critic.py               Finding 复核、过滤和去重
+    diff_parser.py          unified diff 解析
+    github.py               webhook 解析与签名校验
+    llm_client.py           Anthropic / OpenAI-compatible 客户端
+    llm_config.py           运行时模型配置
+    message_bus.py          Agent 消息总线
+    models.py               请求、Finding、报告 schema
+    orchestrator.py         任务分发、聚合和仲裁
+    planner.py              风险感知任务规划
+    project_loader.py       项目压缩包解析与安全限制
+    review_context.py       diff 与文件上下文映射
+  run_review.py             本地 CLI 入口
+tests/                      单元测试与集成测试
 ```
 
-## Quick Start
+## 快速开始
 
 ```bash
 git clone https://github.com/lemon7Cy/multi-agent-code-review.git
@@ -67,40 +67,40 @@ python -m pip install -r requirements.txt
 python -m uvicorn code_review_multiagent.app:app --app-dir src --reload --port 8000
 ```
 
-Open the web console:
+打开 Web 工作台：
 
 ```text
 http://127.0.0.1:8000
 ```
 
-API docs:
+接口文档：
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## Docker
+## Docker 运行
 
 ```bash
 cp .env.example .env
 docker compose up --build
 ```
 
-## Model Configuration
+## 模型配置
 
-The project works without API credentials by using deterministic rule agents. To enable LLM tool-use review, configure a provider through `.env` or the model settings panel in the web console.
+不配置模型时，系统会使用规则 Agent 完成稳定审查。配置模型后，LLM 工具调用 Agent 会加入审查流程。
 
 ```bash
 cp .env.example .env
 ```
 
-Supported providers:
+支持的 provider：
 
-- `claude`: Anthropic Messages API.
-- `deepseek`: OpenAI-compatible chat completions.
-- `newapi`: OpenAI-compatible gateway.
+- `claude`：Anthropic Messages API。
+- `deepseek`：OpenAI-compatible Chat Completions。
+- `newapi`：OpenAI-compatible 网关。
 
-Runtime configuration endpoints:
+运行时配置接口：
 
 ```text
 GET  /llm-config
@@ -109,11 +109,11 @@ POST /llm-config/models
 POST /llm-config/test
 ```
 
-If a model call fails, the orchestrator keeps rule-agent findings and records the fallback reason in the review trace.
+如果模型调用失败，Orchestrator 会保留规则 Agent 的结果，并在审查轨迹里记录降级原因。
 
-## Archive Review
+## 项目压缩包审查
 
-Upload a project archive from the web console or call the API directly:
+可以在 Web 工作台上传 `.zip`，也可以直接调用接口：
 
 ```text
 POST /api/reviews/upload
@@ -123,47 +123,47 @@ form-data:
   title: Manual review
 ```
 
-Safety limits:
+安全限制：
 
-- Maximum archive size: 50 MB.
-- Maximum single file size: 300 KB.
-- Maximum included files: 200.
-- Maximum total text: 2 MB.
-- Skips `.git`, `node_modules`, `.next`, `dist`, `build`, binary files, and other generated artifacts.
+- 压缩包最大 50 MB。
+- 单文件最大 300 KB。
+- 最多纳入 200 个文件。
+- 总文本最大 2 MB。
+- 自动跳过 `.git`、`node_modules`、`.next`、`dist`、`build`、二进制文件和生成产物。
 
-## CLI Usage
+## 本地 CLI
 
 ```bash
 python src/run_review.py path/to/file.py
 ```
 
-The CLI prints a Markdown review report for local inspection.
+CLI 会输出 Markdown 审查报告。
 
 ## GitHub Webhook
 
-Endpoint:
+入口：
 
 ```text
 POST /api/github/webhook
 ```
 
-When `GITHUB_WEBHOOK_SECRET` is configured, the service validates `X-Hub-Signature-256`. When `GITHUB_TOKEN` is configured, it can fetch pull request changed files and generate summary comments. For local integration tests, payloads may include `review_files` directly.
+配置 `GITHUB_WEBHOOK_SECRET` 后，服务会校验 `X-Hub-Signature-256`。配置 `GITHUB_TOKEN` 后，服务可以拉取 PR changed files，并生成 summary comment。用于本地联调时，也可以在 payload 中直接传入 `review_files`。
 
-## Testing
+## 测试
 
 ```bash
 python -m unittest discover -s tests -v
 ```
 
-## Documentation
+## 文档
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Implementation summary](docs/IMPLEMENTATION_SUMMARY.md)
-- [Engineering upgrade plan](docs/engineering_upgrade_plan.md)
+- [架构设计](docs/ARCHITECTURE.md)
+- [实现总结](docs/IMPLEMENTATION_SUMMARY.md)
+- [工程升级计划](docs/engineering_upgrade_plan.md)
 
-## Roadmap
+## 后续方向
 
-- Move the message bus to Redis Streams for distributed workers.
-- Add dependency, architecture, and license-compliance agents.
-- Expand GitHub integration from summary comments to inline review comments.
-- Persist more granular tool traces for auditability.
+- 将 MessageBus 替换为 Redis Streams，支持分布式 worker。
+- 增加依赖安全、架构、许可证合规等 Agent。
+- 从 summary comment 扩展到 inline review comment。
+- 持久化更细粒度的工具调用轨迹，方便审计和复盘。

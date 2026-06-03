@@ -1,4 +1,4 @@
-# Implementation Summary / Multi-Agent Code Review
+# 多 Agent 协作代码审查系统实现总结
 
 > 面向工程复盘的实现总结，记录项目价值、核心架构和主要取舍。
 
@@ -10,18 +10,18 @@ Multi-Agent Code Review 是一个多 Agent 协作代码审查系统：用户上�
 
 **技术栈**：FastAPI / Pydantic / ThreadPoolExecutor / SSE / HTML + React CDN / Claude Anthropic API / OpenAI-compatible API / unittest
 
-**核心关键词**：Multi-Agent、Orchestrator-Worker、MessageBus、Blackboard、Finding Schema、冲突仲裁、项目级 zip 审查、LLM Tool Use、运行时模型配置、流式输出。
+**核心关键词**：Multi-Agent、Orchestrator-Worker、MessageBus、Blackboard、Finding Schema、冲突仲裁、项目级 zip 审查、LLM 工具调用、运行时模型配置、流式输出。
 
 ---
 
-## 1. Implementation Milestones
+## 1. 实现阶段
 
 | 阶段 | 主题 | 产出 |
 |---|---|---|
-| Stage 1 | 为什么代码审查适合 Multi-Agent | 单 Agent 与 Multi-Agent 对比 demo，明确角色专业化和上下文隔离 |
-| Stage 2 | 编排模式与通信方式 | Orchestrator-Worker、Sequential、Hierarchical、Network 模式 demo，以及 MessageBus / Blackboard 设计 |
-| Stage 3 | 从 demo 升级为后端服务 | FastAPI、统一 Finding schema、Orchestrator 并行调度、去重、排序、冲突仲裁 |
-| Stage 4 | 产品化演示能力 | 项目 zip 上传、模型配置、连接测试、流式前端、中文报告 |
+| 阶段 1 | 为什么代码审查适合 Multi-Agent | 单 Agent 与 Multi-Agent 对比 demo，明确角色专业化和上下文隔离 |
+| 阶段 2 | 编排模式与通信方式 | Orchestrator-Worker、Sequential、Hierarchical、Network 模式 demo，以及 MessageBus / Blackboard 设计 |
+| 阶段 3 | 从 demo 升级为后端服务 | FastAPI、统一 Finding schema、Orchestrator 并行调度、去重、排序、冲突仲裁 |
+| 阶段 4 | 产品化演示能力 | 项目 zip 上传、模型配置、连接测试、流式前端、中文报告 |
 
 对应文档：
 
@@ -86,16 +86,16 @@ Orchestrator 不负责亲自审查代码，而是负责：
 
 - 结果稳定，适合测试和演示。
 - 无模型配置时也能运行。
-- 可作为未来 LLM Tool Use 的工具边界。
+- 可作为未来 LLM 工具调用 的工具边界。
 - 可与 LLM Agent 互相补充。
 
-### 2.6 LLM Tool Use 适合作为“深度审查层”
+### 2.6 LLM 工具调用 适合作为“深度审查层”
 
 配置模型后，LLM Security / Performance / Style Agent 会通过工具调用多轮收集证据，而不是一次性让模型读完整个项目后自由发挥。当前工具包括模式搜索、文件摘要、函数分析、导入检查和 SQL 安全检查。这样可以把模型能力限制在明确的代码证据上，同时保留规则 Agent 的稳定兜底。
 
 ### 2.5 AI 产品要考虑输入边界和成本
 
-Stage 4 的 zip 上传不是简单解压，而是做了工程限制：
+阶段 4 的 zip 上传不是简单解压，而是做了工程限制：
 
 ```text
 zip 最大 50MB
@@ -132,7 +132,7 @@ zip 最大 50MB
 
 ### 问题 4：只能审查单个文件，不像真实项目
 
-Stage 4 增加项目 zip 上传能力，后端自动过滤并提取代码文件，实现项目级代码审查，更接近真实 PR / 仓库审查场景。
+阶段 4 增加项目 zip 上传能力，后端自动过滤并提取代码文件，实现项目级代码审查，更接近真实 PR / 仓库审查场景。
 
 ### 问题 5：模型配置写死，不方便演示
 
@@ -186,7 +186,7 @@ ReviewOrchestrator
   ├─ Security Agent
   ├─ Performance Agent
   ├─ Style Agent
-  └─ LLM Tool Use Agents
+  └─ LLM 工具调用 Agent
         ↓
 Blackboard
   └─ 统一收集 Finding
@@ -300,17 +300,17 @@ python -m unittest discover -s tests -v
 
 ---
 
-## 8. Design Rationale
+## 8. 设计说明
 
-### Summary
+### 简要说明
 
 > Multi-Agent Code Review 是一个多 Agent 协作代码审查系统。我没有让一个大模型同时审查所有问题，而是用 Orchestrator-Worker 架构，把任务拆给安全、性能、可维护性三个专职 Agent。每个 Agent 输出统一的 Finding schema，Orchestrator 再做去重、风险排序和冲突仲裁。系统支持项目 zip 上传、模型运行时配置、GitHub Webhook 入口和流式中文报告展示。
 
-### Architecture rationale
+### 架构说明
 
 > 这个项目主要体现 Multi-Agent 编排能力。代码审查天然有多个维度，如果用一个超级 Agent，安全、性能、风格问题会混在同一份上下文里，容易漏问题，也很难控制工具边界。所以我设计了 Security、Performance、Style 三类专职 Agent，由 Orchestrator 统一分发任务并并行执行。为了让多 Agent 结果可被代码消费，我定义了统一的 Finding schema，所有 Agent 都输出结构化问题。Orchestrator 收到结果后会写入 Blackboard，再做去重、风险排序和冲突仲裁。例如性能 Agent 建议批量查询，安全 Agent 要求 SQL 参数化时，Orchestrator 会裁决安全优先，性能优化不能破坏参数化约束。
 
-### Further discussion
+### 延展说明
 
 1. 为什么代码审查适合 Multi-Agent，而合同审查更适合单 Agent + RAG。
 2. 为什么要先定义 `Finding` schema，再做 Agent 实现。
@@ -327,7 +327,7 @@ python -m unittest discover -s tests -v
 2. 把审查报告自动评论回 GitHub PR。
 3. 增加 Test Agent，检查测试缺失和边界用例。
 4. 增加 Dependency Agent，检查依赖漏洞。
-5. 增加 Architecture Agent，检查模块边界和设计问题。
+5. 增加 架构 Agent，检查模块边界和设计问题。
 6. 将内存 MessageBus 替换为 Redis Stream / Celery / Kafka。
 7. 保存审查历史记录，支持任务回放。
 8. 支持增量审查，只分析本次 diff 而不是全量项目。
