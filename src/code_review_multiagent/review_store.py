@@ -14,7 +14,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 
 from .models import AgentConfigCreate, AgentConfigRead, AgentConfigUpdate, ReviewEvent, ReviewReport
 
-
 DEFAULT_DATABASE_URL = "mysql+pymysql://root:root@localhost:3306/code_review_multiagent?charset=utf8mb4"
 DATABASE_URL = os.getenv("CODE_REVIEW_DATABASE_URL", DEFAULT_DATABASE_URL)
 
@@ -237,7 +236,9 @@ def delete_review_record(record_id: int) -> bool:
             record = db.get(ReviewRecord, record_id)
             if record is None:
                 return False
-            for event in db.execute(select(ReviewEventRecord).where(ReviewEventRecord.review_id == record_id)).scalars():
+            for event in db.execute(
+                select(ReviewEventRecord).where(ReviewEventRecord.review_id == record_id)
+            ).scalars():
                 db.delete(event)
             db.delete(record)
             db.commit()
@@ -423,8 +424,7 @@ def _ensure_database_exists() -> None:
         with server_engine.begin() as conn:
             conn.execute(
                 text(
-                    f"CREATE DATABASE IF NOT EXISTS {quoted_database} "
-                    "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+                    f"CREATE DATABASE IF NOT EXISTS {quoted_database} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
                 )
             )
     finally:

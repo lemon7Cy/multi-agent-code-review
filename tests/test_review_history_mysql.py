@@ -10,12 +10,11 @@ from fastapi.testclient import TestClient
 from code_review_multiagent.app import app
 from code_review_multiagent.review_store import StoreUnavailableError, init_store
 
-
-SAMPLE = '''def get_user_profile(db, request):
+SAMPLE = """def get_user_profile(db, request):
     user_id = request.args.get("id")
     sql = "SELECT * FROM users WHERE id = " + user_id
     return db.execute(sql).fetchone()
-'''
+"""
 
 
 def mysql_available() -> bool:

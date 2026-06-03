@@ -4,9 +4,9 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from .base import RuleContext, find_line, infer_language
 from ..models import AgentReview, Finding, ReviewFile, Severity
 from ..review_context import is_test_path
+from .base import RuleContext, find_line, infer_language
 
 Rule = Callable[[str, RuleContext], Finding | None]
 ToolRule = tuple[str, Rule]
@@ -143,7 +143,9 @@ def style_too_many_responsibilities(agent: str, ctx: RuleContext) -> Finding | N
 
 def style_missing_error_handling(agent: str, ctx: RuleContext) -> Finding | None:
     content = ctx.file.content
-    if ("fetchone()" in content or "findOne" in content) and not any(x in content for x in ["if not", "try:", "except", "catch"]):
+    if ("fetchone()" in content or "findOne" in content) and not any(
+        x in content for x in ["if not", "try:", "except", "catch"]
+    ):
         return Finding(
             agent=agent,
             rule_id="STYLE-MISSING-ERROR-HANDLING",

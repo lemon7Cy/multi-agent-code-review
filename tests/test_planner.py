@@ -6,13 +6,13 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from code_review_multiagent.models import ReviewFile, ReviewRequest
-from code_review_multiagent.review_context import build_review_context
 from code_review_multiagent.planner import ReviewPlanner
+from code_review_multiagent.review_context import build_review_context
 
 
 class ReviewPlannerTests(unittest.TestCase):
     def test_planner_creates_role_tasks_and_risk_hints_for_changed_code(self):
-        diff = '''diff --git a/src/users.py b/src/users.py
+        diff = """diff --git a/src/users.py b/src/users.py
 --- a/src/users.py
 +++ b/src/users.py
 @@ -1,2 +1,5 @@
@@ -21,15 +21,20 @@ class ReviewPlannerTests(unittest.TestCase):
 +    for order_id in user.order_ids:
 +        db.execute(f"SELECT * FROM orders WHERE id = {order_id}")
      return db.execute(sql)
-'''
+"""
         request = ReviewRequest(
             repo="demo/repo",
-            files=[ReviewFile(path="src/users.py", content='''def get_user(db, user_id):
+            files=[
+                ReviewFile(
+                    path="src/users.py",
+                    content="""def get_user(db, user_id):
     sql = "SELECT * FROM users WHERE id = " + user_id
     for order_id in user.order_ids:
         db.execute(f"SELECT * FROM orders WHERE id = {order_id}")
     return db.execute(sql)
-''')],
+""",
+                )
+            ],
             diff=diff,
         )
         context = build_review_context(request)
@@ -52,7 +57,7 @@ class ReviewPlannerTests(unittest.TestCase):
                 ReviewFile(path="src/users.py", content="def get_user():\n    return 1\n"),
                 ReviewFile(path="tests/test_users.py", content="def test_get_user():\n    assert True\n"),
             ],
-            diff='''diff --git a/src/users.py b/src/users.py
+            diff="""diff --git a/src/users.py b/src/users.py
 --- a/src/users.py
 +++ b/src/users.py
 @@ -1 +1,2 @@
@@ -64,7 +69,7 @@ diff --git a/tests/test_users.py b/tests/test_users.py
 @@ -0,0 +1,2 @@
 +def test_get_user():
 +    assert True
-''',
+""",
         )
 
         tasks = ReviewPlanner().plan(build_review_context(request))
@@ -75,13 +80,13 @@ diff --git a/tests/test_users.py b/tests/test_users.py
         request = ReviewRequest(
             repo="demo/repo",
             files=[ReviewFile(path="README.md", content="# docs\n")],
-            diff='''diff --git a/README.md b/README.md
+            diff="""diff --git a/README.md b/README.md
 --- a/README.md
 +++ b/README.md
 @@ -1 +1,2 @@
  # docs
 +more docs
-''',
+""",
         )
 
         tasks = ReviewPlanner().plan(build_review_context(request))

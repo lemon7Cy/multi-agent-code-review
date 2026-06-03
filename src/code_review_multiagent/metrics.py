@@ -28,6 +28,7 @@ class AgentExecution:
 @dataclass
 class ReviewMetrics:
     """单次审查的指标集合。"""
+
     review_id: str
     start_time: float = field(default_factory=time.time)
     end_time: float = 0.0
@@ -57,7 +58,15 @@ class MetricsCollector:
             self._reviews = self._reviews[-100:]
         return metrics
 
-    def record_agent(self, metrics: ReviewMetrics, agent_name: str, duration: float, finding_count: int, tool_calls: int = 0, error: str | None = None) -> None:
+    def record_agent(
+        self,
+        metrics: ReviewMetrics,
+        agent_name: str,
+        duration: float,
+        finding_count: int,
+        tool_calls: int = 0,
+        error: str | None = None,
+    ) -> None:
         execution = AgentExecution(
             agent_name=agent_name,
             start_time=metrics.start_time,

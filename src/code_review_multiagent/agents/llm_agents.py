@@ -3,11 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from .base import infer_language
 from ..llm_client import generate_json
 from ..llm_config import get_llm_config
 from ..models import AgentReview, Finding, ReviewFile, Severity
-
+from .base import infer_language
 
 SYSTEM_SUFFIX = """
 你必须只从自己的角色维度审查代码。
@@ -57,7 +56,9 @@ class LLMReviewAgent:
         return AgentReview(agent=self.name, role=self.role, findings=findings, notes=notes)
 
     def _build_prompt(self, files: list[ReviewFile]) -> str:
-        sections = ["请审查下面的项目代码文件。代码来自同一个上传项目，请结合跨文件上下文，但只输出你角色范围内的问题。"]
+        sections = [
+            "请审查下面的项目代码文件。代码来自同一个上传项目，请结合跨文件上下文，但只输出你角色范围内的问题。"
+        ]
         for file in files:
             language = infer_language(file.path, file.language)
             numbered = "\n".join(f"{idx:>4}: {line}" for idx, line in enumerate(file.content.splitlines(), start=1))
@@ -108,7 +109,9 @@ def _default_llm_agents() -> list[LLMReviewAgent]:
 def _prompt_with_tools(system_prompt: str, tools: list[str]) -> str:
     if not tools:
         return system_prompt
-    return f"{system_prompt}\n\n你可以使用的审查 tools 边界：{', '.join(tools)}。只能围绕这些 tools 对应的能力输出问题。"
+    return (
+        f"{system_prompt}\n\n你可以使用的审查 tools 边界：{', '.join(tools)}。只能围绕这些 tools 对应的能力输出问题。"
+    )
 
 
 def _finding_from_llm(agent_name: str, raw: dict[str, Any]) -> Finding:

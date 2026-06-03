@@ -10,8 +10,7 @@ class ReviewAgent(Protocol):
     name: str
     role: str
 
-    def review(self, files: list[ReviewFile]) -> AgentReview:
-        ...
+    def review(self, files: list[ReviewFile]) -> AgentReview: ...
 
 
 @dataclass(frozen=True)

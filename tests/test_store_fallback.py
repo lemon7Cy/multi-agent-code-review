@@ -11,7 +11,6 @@ from code_review_multiagent.app import _store_unavailable_detail, safe_persist_r
 from code_review_multiagent.models import ReviewFile, ReviewRequest  # noqa: E402
 from code_review_multiagent.orchestrator import ReviewOrchestrator  # noqa: E402
 
-
 SAMPLE = """def get_user_profile(db, request):
     user_id = request.args.get("id")
     sql = "SELECT * FROM users WHERE id = " + user_id

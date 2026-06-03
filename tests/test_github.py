@@ -9,7 +9,12 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from code_review_multiagent.github import _truncate_comment, build_review_request_from_webhook, github_api_available, verify_github_signature
+from code_review_multiagent.github import (
+    _truncate_comment,
+    build_review_request_from_webhook,
+    github_api_available,
+    verify_github_signature,
+)
 
 
 class GitHubWebhookTests(unittest.TestCase):

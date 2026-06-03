@@ -16,6 +16,7 @@ def verify_github_signature(raw_body: bytes, signature_header: str | None, secre
     webhook_secret = secret if secret is not None else os.getenv("GITHUB_WEBHOOK_SECRET", "")
     if not webhook_secret:
         from .log import get_logger
+
         get_logger(__name__).warning("github_webhook_no_secret_configured")
         return False
     if not signature_header or not signature_header.startswith("sha256="):
@@ -121,7 +122,9 @@ async def post_pull_request_comment(repo: str | None, pr_number: int | None, mar
         return {"posted": True, "url": payload.get("html_url"), "id": payload.get("id")}
 
 
-async def _fetch_pull_files(client: httpx.AsyncClient, api_base: str, headers: dict[str, str], repo: str, pr_number: int) -> list[dict[str, Any]]:
+async def _fetch_pull_files(
+    client: httpx.AsyncClient, api_base: str, headers: dict[str, str], repo: str, pr_number: int
+) -> list[dict[str, Any]]:
     files: list[dict[str, Any]] = []
     page = 1
     while True:
@@ -159,9 +162,28 @@ def _github_headers(token: str) -> dict[str, str]:
 def _should_fetch_raw(filename: str) -> bool:
     suffix = os.path.splitext(filename.lower())[1]
     return suffix in {
-        ".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".go", ".rs", ".rb", ".php",
-        ".cs", ".cpp", ".c", ".h", ".sql", ".yaml", ".yml", ".json", ".toml",
-        ".md", ".html", ".css",
+        ".py",
+        ".js",
+        ".ts",
+        ".tsx",
+        ".jsx",
+        ".java",
+        ".go",
+        ".rs",
+        ".rb",
+        ".php",
+        ".cs",
+        ".cpp",
+        ".c",
+        ".h",
+        ".sql",
+        ".yaml",
+        ".yml",
+        ".json",
+        ".toml",
+        ".md",
+        ".html",
+        ".css",
     }
 
 

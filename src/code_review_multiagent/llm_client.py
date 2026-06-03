@@ -93,7 +93,9 @@ async def test_model(config: LLMConfig) -> str:
             temperature=0,
             messages=[{"role": "user", "content": "Reply with OK only."}],
         )
-        return "".join(getattr(block, "text", "") for block in response.content if getattr(block, "type", "") == "text").strip()
+        return "".join(
+            getattr(block, "text", "") for block in response.content if getattr(block, "type", "") == "text"
+        ).strip()
 
     response = await _openai_chat(config, [{"role": "user", "content": "Reply with OK only."}], max_tokens=16)
     return response.strip()

@@ -24,11 +24,7 @@ class MessageBus:
         self._messages.append(message)
 
     def consume(self, receiver: str, topic: str | None = None) -> list[AgentMessage]:
-        matched = [
-            msg
-            for msg in self._messages
-            if msg.receiver == receiver and (topic is None or msg.topic == topic)
-        ]
+        matched = [msg for msg in self._messages if msg.receiver == receiver and (topic is None or msg.topic == topic)]
         self._messages = [msg for msg in self._messages if msg not in matched]
         return matched
 

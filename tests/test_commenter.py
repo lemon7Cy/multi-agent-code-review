@@ -67,7 +67,9 @@ class CommenterTests(unittest.TestCase):
             )
         )
         report = ReviewReport(
-            summary=ReviewSummary(total_findings=len(findings), by_severity={"Low": len(findings)}, by_agent={"Test Agent": len(findings)}),
+            summary=ReviewSummary(
+                total_findings=len(findings), by_severity={"Low": len(findings)}, by_agent={"Test Agent": len(findings)}
+            ),
             findings=findings,
             markdown="body",
         )

@@ -13,15 +13,15 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
-from .base import infer_language
 from ..llm_client import openai_base_url, use_openai_compatible
 from ..llm_config import LLMConfig, get_llm_config
 from ..models import AgentReview, Finding, ReviewFile, Severity
+from .base import infer_language
 
 MAX_TOOL_STEPS = 6
 
@@ -123,7 +123,9 @@ class CodeAnalysisToolkit:
             return f"Invalid regex: {e}"
 
         results: list[str] = []
-        files_to_search = [self._files[target_path]] if target_path and target_path in self._files else self._files.values()
+        files_to_search = (
+            [self._files[target_path]] if target_path and target_path in self._files else self._files.values()
+        )
         for f in files_to_search:
             for i, line in enumerate(f.content.splitlines(), 1):
                 if regex.search(line):
@@ -151,7 +153,11 @@ class CodeAnalysisToolkit:
                     indent_level = len(line) - len(line.lstrip())
                     func_lines.append(line)
             else:
-                if line.strip() and (len(line) - len(line.lstrip())) <= indent_level and not line.strip().startswith(("#", "//", "*")):
+                if (
+                    line.strip()
+                    and (len(line) - len(line.lstrip())) <= indent_level
+                    and not line.strip().startswith(("#", "//", "*"))
+                ):
                     break
                 func_lines.append(line)
 
@@ -178,7 +184,11 @@ class CodeAnalysisToolkit:
         imports: list[str] = []
         for line in f.content.splitlines():
             stripped = line.strip()
-            if stripped.startswith(("import ", "from ")) or stripped.startswith(("require(", "const ")) and "require" in stripped:
+            if (
+                stripped.startswith(("import ", "from "))
+                or stripped.startswith(("require(", "const "))
+                and "require" in stripped
+            ):
                 imports.append(stripped)
         if not imports:
             return "No imports found."
@@ -193,7 +203,7 @@ class CodeAnalysisToolkit:
         lines = f.content.splitlines()
         start = args.get("line_start", 1) - 1
         end = args.get("line_end", len(lines))
-        segment = lines[max(0, start):min(end, len(lines))]
+        segment = lines[max(0, start) : min(end, len(lines))]
         code = "\n".join(segment)
 
         issues: list[str] = []
@@ -207,7 +217,7 @@ class CodeAnalysisToolkit:
             issues.append("Parameterized query detected (safe pattern)")
 
         if not issues:
-            return f"No obvious SQL safety issues in lines {start+1}-{end}."
+            return f"No obvious SQL safety issues in lines {start + 1}-{end}."
         return "\n".join(issues)
 
     def _get_file_summary(self, args: dict[str, Any]) -> str:
@@ -324,11 +334,13 @@ class LLMToolUseAgent:
             for block in content_blocks:
                 if block.get("type") == "tool_use":
                     observation = toolkit.execute(block["name"], block["input"])
-                    tool_results.append({
-                        "type": "tool_result",
-                        "tool_use_id": block["id"],
-                        "content": observation,
-                    })
+                    tool_results.append(
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": block["id"],
+                            "content": observation,
+                        }
+                    )
 
             messages.append({"role": "assistant", "content": content_blocks})
             messages.append({"role": "user", "content": tool_results})
@@ -345,7 +357,10 @@ class LLMToolUseAgent:
             {"role": "user", "content": user_prompt},
         ]
         openai_tools = [
-            {"type": "function", "function": {"name": t["name"], "description": t["description"], "parameters": t["input_schema"]}}
+            {
+                "type": "function",
+                "function": {"name": t["name"], "description": t["description"], "parameters": t["input_schema"]},
+            }
             for t in REVIEW_TOOLS
         ]
 
@@ -374,11 +389,13 @@ class LLMToolUseAgent:
                 fn = tool_call["function"]
                 tool_input = _safe_json_object(fn.get("arguments"))
                 observation = toolkit.execute(fn["name"], tool_input)
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call["id"],
-                    "content": observation,
-                })
+                messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": observation,
+                    }
+                )
 
         return self._empty_review("Reached max tool steps without conclusion")
 
@@ -445,23 +462,17 @@ def _default_tooluse_agents() -> list[LLMToolUseAgent]:
         LLMToolUseAgent(
             name="LLM Security Agent",
             role="安全审查：SQL 注入、XSS、鉴权、敏感信息泄露、供应链风险。",
-            system_prompt=TOOLUSE_SYSTEM_PROMPT_TEMPLATE.format(
-                role_name="Security Agent，专注代码安全漏洞检测"
-            ),
+            system_prompt=TOOLUSE_SYSTEM_PROMPT_TEMPLATE.format(role_name="Security Agent，专注代码安全漏洞检测"),
         ),
         LLMToolUseAgent(
             name="LLM Performance Agent",
             role="性能审查：N+1 查询、无界查询、循环内 IO、缓存缺失。",
-            system_prompt=TOOLUSE_SYSTEM_PROMPT_TEMPLATE.format(
-                role_name="Performance Agent，专注性能瓶颈和资源效率"
-            ),
+            system_prompt=TOOLUSE_SYSTEM_PROMPT_TEMPLATE.format(role_name="Performance Agent，专注性能瓶颈和资源效率"),
         ),
         LLMToolUseAgent(
             name="LLM Style Agent",
             role="工程质量审查：职责拆分、命名、异常处理、测试友好性。",
-            system_prompt=TOOLUSE_SYSTEM_PROMPT_TEMPLATE.format(
-                role_name="Style Agent，专注代码可维护性和工程质量"
-            ),
+            system_prompt=TOOLUSE_SYSTEM_PROMPT_TEMPLATE.format(role_name="Style Agent，专注代码可维护性和工程质量"),
         ),
     ]
 
@@ -503,7 +514,7 @@ def _json_candidates(text: str) -> list[str]:
     start = text.find("{")
     end = text.rfind("}")
     if start >= 0 and end > start:
-        candidates.insert(0, text[start:end + 1])
+        candidates.insert(0, text[start : end + 1])
     return candidates
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -7,17 +8,26 @@ from datetime import datetime
 from hashlib import sha1
 from typing import Callable
 
-import time
-
 from .agents import build_default_agents
 from .agents.base import ReviewAgent
 from .agents.llm_agents import build_llm_agents
 from .agents.llm_tooluse_agent import build_tooluse_agents
 from .blackboard import Blackboard
+from .critic import Critic
 from .message_bus import AgentMessage, MessageBus
 from .metrics import collector as metrics_collector
-from .critic import Critic
-from .models import AgentReview, Conflict, Finding, ReviewEvent, ReviewReport, ReviewRequest, ReviewSummary, SEVERITY_RANK, SEVERITY_ZH, Severity
+from .models import (
+    SEVERITY_RANK,
+    SEVERITY_ZH,
+    AgentReview,
+    Conflict,
+    Finding,
+    ReviewEvent,
+    ReviewReport,
+    ReviewRequest,
+    ReviewSummary,
+    Severity,
+)
 from .review_store import StoreUnavailableError, list_enabled_agent_configs
 
 
@@ -36,7 +46,9 @@ class ReviewOrchestrator:
     def review(self, request: ReviewRequest) -> ReviewReport:
         return self.review_with_events(request).report
 
-    def review_with_events(self, request: ReviewRequest, on_event: Callable[[ReviewEvent], None] | None = None) -> ReviewRun:
+    def review_with_events(
+        self, request: ReviewRequest, on_event: Callable[[ReviewEvent], None] | None = None
+    ) -> ReviewRun:
         active_agents = self._select_agents()
         bus = MessageBus()
         blackboard = Blackboard()
@@ -51,8 +63,19 @@ class ReviewOrchestrator:
             if on_event:
                 on_event(event)
 
-        emit(ReviewEvent(type="start", stage="接收任务", message=f"已收到 {len(request.files)} 个文件，开始多 Agent 协作审查。"))
-        emit(ReviewEvent(type="progress", stage="选择身份", message=f"本次启用 {len(active_agents)} 个 Agent 身份。", metadata={"agent_count": len(active_agents)}))
+        emit(
+            ReviewEvent(
+                type="start", stage="接收任务", message=f"已收到 {len(request.files)} 个文件，开始多 Agent 协作审查。"
+            )
+        )
+        emit(
+            ReviewEvent(
+                type="progress",
+                stage="选择身份",
+                message=f"本次启用 {len(active_agents)} 个 Agent 身份。",
+                metadata={"agent_count": len(active_agents)},
+            )
+        )
 
         for agent in active_agents:
             emit(
@@ -73,7 +96,9 @@ class ReviewOrchestrator:
             )
 
         with ThreadPoolExecutor(max_workers=max(1, len(active_agents))) as executor:
-            future_to_agent = {executor.submit(self._timed_review, agent, request.files): agent for agent in active_agents}
+            future_to_agent = {
+                executor.submit(self._timed_review, agent, request.files): agent for agent in active_agents
+            }
             for future in as_completed(future_to_agent):
                 agent = future_to_agent[future]
                 emit(
@@ -87,7 +112,14 @@ class ReviewOrchestrator:
                 review, duration, error = future.result()
                 if error:
                     metrics_collector.record_agent(review_metrics, agent.name, duration, 0, error=error)
-                    emit(ReviewEvent(type="agent_error", agent=agent.name, stage="异常", message=f"{agent.name} 执行出错: {error}"))
+                    emit(
+                        ReviewEvent(
+                            type="agent_error",
+                            agent=agent.name,
+                            stage="异常",
+                            message=f"{agent.name} 执行出错: {error}",
+                        )
+                    )
                     continue
                 review.findings = [self._calibrate_finding(finding) for finding in review.findings]
                 metrics_collector.record_agent(review_metrics, agent.name, duration, len(review.findings))

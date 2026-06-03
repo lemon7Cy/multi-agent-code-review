@@ -8,24 +8,30 @@ from threading import Lock, Thread
 from typing import Callable
 from uuid import uuid4
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
 
-from .github import build_review_request_from_github_api, build_review_request_from_webhook, parse_json_body, post_pull_request_comment, verify_github_signature
+from .github import (
+    build_review_request_from_github_api,
+    build_review_request_from_webhook,
+    parse_json_body,
+    post_pull_request_comment,
+    verify_github_signature,
+)
 from .llm_client import list_models, test_model
 from .llm_config import LLMConfig, LLMConfigUpdate, LLMModelsRequest, get_llm_config, public_config, save_llm_config
 from .metrics import collector as metrics_collector
-from .models import AgentConfigCreate, AgentConfigUpdate, ReviewFile, ReviewRequest, ReviewReport
+from .models import AgentConfigCreate, AgentConfigUpdate, ReviewFile, ReviewReport, ReviewRequest
 from .orchestrator import ReviewOrchestrator
 from .project_loader import extract_review_files_from_upload
 from .review_store import (
     StoreUnavailableError,
     create_agent_config,
-    delete_review_record,
     delete_agent_config,
+    delete_review_record,
     get_review_report,
     init_store,
     list_agent_configs,
@@ -90,7 +96,9 @@ def admin() -> FileResponse:
 @app.get("/health")
 def health() -> dict:
     from sqlalchemy import text
+
     from .review_store import _engine
+
     db_ok = True
     try:
         if _engine:
@@ -271,11 +279,14 @@ async def upload_project_review_stream(
                     "metadata": meta,
                 }
             )
+
             def enrich_report(report: ReviewReport) -> None:
                 report.metadata["upload"] = meta
                 report.metadata["source_filename"] = file.filename
 
-            async for chunk in _stream_review_run(ReviewRequest(repo=repo, title=title, files=files), sse, enrich_report):
+            async for chunk in _stream_review_run(
+                ReviewRequest(repo=repo, title=title, files=files), sse, enrich_report
+            ):
                 yield chunk
         except Exception as e:
             yield sse({"type": "error", "message": str(e)})
@@ -300,7 +311,7 @@ async def create_review_stream(request: ReviewRequest) -> StreamingResponse:
 
 @app.get("/api/demo", response_model=ReviewReport)
 def demo_review() -> ReviewReport:
-    sample = '''def get_user_profile(db, request):
+    sample = """def get_user_profile(db, request):
     user_id = request.args.get("id")
     sql = "SELECT * FROM users WHERE id = " + user_id
     user = db.execute(sql).fetchone()
@@ -315,7 +326,7 @@ def demo_review() -> ReviewReport:
         "orders": orders,
         "debug_token": "demo-api-key-placeholder"
     }
-'''
+"""
     return orchestrator.review(
         ReviewRequest(
             repo="demo/multi-agent-review",

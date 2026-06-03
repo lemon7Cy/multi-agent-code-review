@@ -51,10 +51,7 @@ class ReviewContext:
 
 
 def build_review_context(request: ReviewRequest) -> ReviewContext:
-    contexts = {
-        file.path: ReviewFileContext(file=file)
-        for file in request.files
-    }
+    contexts = {file.path: ReviewFileContext(file=file) for file in request.files}
 
     if request.diff:
         parsed = parse_unified_diff(request.diff)

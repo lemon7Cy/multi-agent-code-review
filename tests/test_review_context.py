@@ -11,7 +11,7 @@ from code_review_multiagent.review_context import build_review_context
 
 class ReviewContextTests(unittest.TestCase):
     def test_build_context_maps_diff_changed_lines_to_review_files(self):
-        diff = '''diff --git a/src/app.py b/src/app.py
+        diff = """diff --git a/src/app.py b/src/app.py
 --- a/src/app.py
 +++ b/src/app.py
 @@ -1,3 +1,4 @@
@@ -19,7 +19,7 @@ class ReviewContextTests(unittest.TestCase):
 -    return "ok"
 +    token = "demo"
 +    return token
-'''
+"""
         request = ReviewRequest(
             repo="demo/repo",
             files=[ReviewFile(path="src/app.py", content='def handler():\n    token = "demo"\n    return token\n')],
@@ -49,13 +49,13 @@ class ReviewContextTests(unittest.TestCase):
         self.assertEqual(file_context.changed_new_lines, set())
 
     def test_build_context_exposes_changed_test_files(self):
-        diff = '''diff --git a/tests/test_app.py b/tests/test_app.py
+        diff = """diff --git a/tests/test_app.py b/tests/test_app.py
 --- a/tests/test_app.py
 +++ b/tests/test_app.py
 @@ -0,0 +1,2 @@
 +def test_handler():
 +    assert True
-'''
+"""
         request = ReviewRequest(
             repo="demo/repo",
             files=[ReviewFile(path="tests/test_app.py", content="def test_handler():\n    assert True\n")],

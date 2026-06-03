@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from typing import Any, Protocol
+from typing import Protocol
 
 from .message_bus import AgentMessage
 
@@ -22,14 +22,11 @@ from .message_bus import AgentMessage
 class MessageBusProtocol(Protocol):
     """消息总线协议。所有实现（InMemory / Redis / Kafka）统一接口。"""
 
-    def publish(self, message: AgentMessage) -> None:
-        ...
+    def publish(self, message: AgentMessage) -> None: ...
 
-    def consume(self, receiver: str, topic: str | None = None) -> list[AgentMessage]:
-        ...
+    def consume(self, receiver: str, topic: str | None = None) -> list[AgentMessage]: ...
 
-    def peek_all(self) -> list[AgentMessage]:
-        ...
+    def peek_all(self) -> list[AgentMessage]: ...
 
 
 class RedisStreamBus:
@@ -111,12 +108,14 @@ class RedisStreamBus:
                 except (json.JSONDecodeError, TypeError):
                     payload = fields.get("payload")
 
-                messages.append(AgentMessage(
-                    sender=fields.get("sender", ""),
-                    receiver=fields.get("receiver", ""),
-                    topic=fields.get("topic", ""),
-                    payload=payload,
-                ))
+                messages.append(
+                    AgentMessage(
+                        sender=fields.get("sender", ""),
+                        receiver=fields.get("receiver", ""),
+                        topic=fields.get("topic", ""),
+                        payload=payload,
+                    )
+                )
                 self._redis.xack(self.STREAM_KEY, group, msg_id)
 
         return messages
@@ -134,12 +133,14 @@ class RedisStreamBus:
                 payload = json.loads(fields.get("payload", "{}"))
             except (json.JSONDecodeError, TypeError):
                 payload = fields.get("payload")
-            messages.append(AgentMessage(
-                sender=fields.get("sender", ""),
-                receiver=fields.get("receiver", ""),
-                topic=fields.get("topic", ""),
-                payload=payload,
-            ))
+            messages.append(
+                AgentMessage(
+                    sender=fields.get("sender", ""),
+                    receiver=fields.get("receiver", ""),
+                    topic=fields.get("topic", ""),
+                    payload=payload,
+                )
+            )
         return messages
 
 
@@ -157,6 +158,7 @@ def create_message_bus() -> MessageBusProtocol:
             return RedisStreamBus()
         except (ImportError, Exception) as e:
             import logging
+
             logging.warning(f"Redis bus unavailable ({e}), falling back to in-memory bus")
             return InMemoryBus()
     return InMemoryBus()

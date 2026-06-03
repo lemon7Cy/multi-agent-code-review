@@ -26,11 +26,16 @@ class AsyncReviewJobsTests(unittest.TestCase):
             def review_with_events(self, request, on_event=None):
                 if on_event:
                     from code_review_multiagent.models import ReviewEvent
+
                     on_event(ReviewEvent(type="start", message="started"))
                 from code_review_multiagent.orchestrator import ReviewRun
+
                 return ReviewRun(report=report, events=[])
 
-        with patch("code_review_multiagent.app.orchestrator", FakeOrchestrator()), patch("code_review_multiagent.app._persist_report", lambda report, events=None: None):
+        with (
+            patch("code_review_multiagent.app.orchestrator", FakeOrchestrator()),
+            patch("code_review_multiagent.app._persist_report", lambda report, events=None: None),
+        ):
             created = client.post(
                 "/api/reviews/jobs",
                 json={"repo": "demo/repo", "files": [{"path": "app.py", "content": "print(1)"}]},

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .models import ReviewReport, SEVERITY_ZH
+from .models import SEVERITY_ZH, ReviewReport
 
 
 def build_pr_comment_payload(report: ReviewReport, max_inline_comments: int = 20) -> dict[str, Any]:

@@ -8,8 +8,7 @@ sys.path.insert(0, str(ROOT / "src"))
 from code_review_multiagent.models import ReviewFile, ReviewRequest
 from code_review_multiagent.orchestrator import ReviewOrchestrator
 
-
-SAMPLE = '''def get_user_profile(db, request):
+SAMPLE = """def get_user_profile(db, request):
     user_id = request.args.get("id")
     sql = "SELECT * FROM users WHERE id = " + user_id
     user = db.execute(sql).fetchone()
@@ -19,7 +18,7 @@ SAMPLE = '''def get_user_profile(db, request):
         orders.append(db.execute(f"SELECT * FROM orders WHERE id = {order_id}").fetchone())
 
     return {"debug_token": "demo-api-key-placeholder", "orders": orders}
-'''
+"""
 
 
 class OrchestratorTests(unittest.TestCase):
@@ -40,11 +39,11 @@ class OrchestratorTests(unittest.TestCase):
         self.assertIn("### 可维护性审查 Agent", report.markdown)
 
     def test_clean_code_has_no_high_findings(self):
-        clean = '''def get_user(db, current_user, user_id):
+        clean = """def get_user(db, current_user, user_id):
     if current_user.id != user_id:
         raise PermissionError()
     return db.execute("SELECT name FROM users WHERE id = ?", (user_id,)).fetchone()
-'''
+"""
         report = ReviewOrchestrator().review(
             ReviewRequest(repo="test/repo", files=[ReviewFile(path="app/users.py", content=clean)])
         )

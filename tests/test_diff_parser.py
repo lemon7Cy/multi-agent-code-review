@@ -10,7 +10,7 @@ from code_review_multiagent.diff_parser import parse_unified_diff
 
 class DiffParserTests(unittest.TestCase):
     def test_parse_unified_diff_tracks_added_and_removed_lines(self):
-        diff = '''diff --git a/src/app.py b/src/app.py
+        diff = """diff --git a/src/app.py b/src/app.py
 --- a/src/app.py
 +++ b/src/app.py
 @@ -1,4 +1,5 @@
@@ -18,7 +18,7 @@ class DiffParserTests(unittest.TestCase):
 -    return "hi"
 +    name = "world"
 +    return f"hi {name}"
- '''
+ """
         parsed = parse_unified_diff(diff)
         file = parsed.files[0]
 
@@ -39,7 +39,7 @@ class DiffParserTests(unittest.TestCase):
         )
 
     def test_parse_multiple_files_and_new_file(self):
-        diff = '''diff --git a/src/old.py b/src/old.py
+        diff = """diff --git a/src/old.py b/src/old.py
 --- a/src/old.py
 +++ b/src/old.py
 @@ -10,2 +10,2 @@ def run():
@@ -52,7 +52,7 @@ new file mode 100644
 @@ -0,0 +1,2 @@
 +def test_new_call():
 +    assert True
-'''
+"""
         parsed = parse_unified_diff(diff)
 
         self.assertEqual([file.path for file in parsed.files], ["src/old.py", "tests/test_new.py"])
@@ -62,14 +62,14 @@ new file mode 100644
         self.assertEqual([line.new_line for line in parsed.files[1].hunks[0].changed_lines], [1, 2])
 
     def test_no_newline_marker_is_ignored(self):
-        diff = '''diff --git a/src/app.py b/src/app.py
+        diff = """diff --git a/src/app.py b/src/app.py
 --- a/src/app.py
 +++ b/src/app.py
 @@ -1 +1 @@
 -old
 +new
 \\ No newline at end of file
-'''
+"""
         parsed = parse_unified_diff(diff)
 
         changed = parsed.files[0].hunks[0].changed_lines

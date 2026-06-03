@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 
 from .review_context import ReviewContext
 
-
 _CODE_EXTENSIONS = {
     ".py",
     ".js",
@@ -38,16 +37,10 @@ class ReviewPlanner:
     """Creates role-specific review tasks from diff-aware review context."""
 
     def plan(self, context: ReviewContext) -> list[ReviewTask]:
-        changed_code_paths = [
-            path for path in sorted(context.changed_file_paths())
-            if _is_code_path(path)
-        ]
+        changed_code_paths = [path for path in sorted(context.changed_file_paths()) if _is_code_path(path)]
         if not changed_code_paths:
             # Without a diff, review all code files for backwards-compatible API usage.
-            changed_code_paths = [
-                path for path in sorted(context.files)
-                if _is_code_path(path)
-            ]
+            changed_code_paths = [path for path in sorted(context.files) if _is_code_path(path)]
         if not changed_code_paths:
             return []
 
@@ -115,7 +108,7 @@ def _is_code_path(path: str) -> bool:
 def _looks_like_sql_injection(text: str) -> bool:
     lowered = text.lower()
     has_sql = any(keyword in lowered for keyword in ("select ", "insert ", "update ", "delete "))
-    has_concat = " + " in text or "f\"" in text or "f'" in text or "%" in text or ".format(" in text
+    has_concat = " + " in text or 'f"' in text or "f'" in text or "%" in text or ".format(" in text
     return has_sql and has_concat
 
 
