@@ -1,4 +1,18 @@
-# 多 Agent 协作代码审查系统
+<div align="center">
+
+# Multi-Agent Code Review / 多 Agent 协作代码审查系统
+
+**面向 Pull Request 的多角色 Agent 审查、证据收集与评论生成平台**
+
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-review%20API-009688?logo=fastapi&logoColor=white)
+![GitHub](https://img.shields.io/badge/GitHub-PR%20webhook-181717?logo=github&logoColor=white)
+![LLM](https://img.shields.io/badge/LLM-tool%20use-7C3AED)
+![CI](https://img.shields.io/badge/CI-pytest%20%2B%20build-2563EB)
+
+</div>
+
+## 项目简介
 
 项目2完成版 MVP：多个专职 Agent 从不同维度审查代码，Orchestrator 负责任务分发、结果汇总、去重和冲突仲裁，并提供 FastAPI 接口、GitHub Webhook 入口和可视化页面。
 
