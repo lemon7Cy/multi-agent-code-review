@@ -1,6 +1,6 @@
-# Day2 设计说明：Multi-Agent 编排与通信
+# Stage 2 设计说明：Multi-Agent 编排与通信
 
-项目2的主流程采用 **Orchestrator-Worker**：
+本系统的主流程采用 **Orchestrator-Worker**：
 
 ```text
 代码输入
@@ -29,7 +29,7 @@ Blackboard / Results Store
 | Orchestrator-Worker | 中央分发，Worker 并行处理 | PR 多维审查 | MVP 主模式 |
 | Sequential | 上一步输出影响下一步 | 解析 → 修复 → 验证 | 作为辅助流程 |
 | Hierarchical | 多层 Lead 分组管理 Worker | 大型仓库、多语言项目 | 后续扩展 |
-| Network | Agent 互相讨论 | 复杂争议、方案评审 | Day3 仲裁后再引入 |
+| Network | Agent 互相讨论 | 复杂争议、方案评审 | Stage 3 仲裁后再引入 |
 
 ## Agent 通信方式
 
@@ -67,9 +67,9 @@ Style Agent
 - 每个 Agent 只暴露自己的工具。
 - Orchestrator 只处理结构化产物，不干预 Worker 内部推理。
 
-## Day3 预留点
+## Stage 3 预留点
 
-Day3 可以在 Orchestrator 层实现：
+Stage 3 可以在 Orchestrator 层实现：
 
 1. finding 归一化：统一 severity、category、file、line、evidence。
 2. 去重：多个 Agent 报告同一问题时合并。

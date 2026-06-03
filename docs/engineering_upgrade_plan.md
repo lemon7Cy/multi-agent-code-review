@@ -262,14 +262,14 @@ security_task = next(t for t in tasks if t.agent_role == "security")
 
 ---
 
-## Task 8: Documentation and Resume Polish
+## Task 8: Documentation and Project Presentation
 
-**Objective:** Make the project readable and credible for recruiters/interviewers.
+**Objective:** Make the project easier to understand, run, and evaluate as an engineering artifact.
 
 **Files:**
 - Modify: `README.md`
 - Modify: `docs/ARCHITECTURE.md`
-- Modify: `docs/INTERVIEW_NOTES.md`
+- Modify: `docs/IMPLEMENTATION_SUMMARY.md`
 - Create: `docs/demo_script.md`
 
 **Content requirements:**
@@ -278,8 +278,8 @@ security_task = next(t for t in tasks if t.agent_role == "security")
 - Local run commands.
 - Sample PR review flow.
 - Engineering tradeoffs.
-- Interview talking points.
-- Resume bullet suggestions.
+- Operational limits and extension points.
+- Clear explanation of design choices.
 
 ---
 

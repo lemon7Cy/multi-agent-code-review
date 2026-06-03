@@ -1,12 +1,12 @@
-# 项目 2 技术总结：多 Agent 协作代码审查系统
+# Implementation Summary / Multi-Agent Code Review
 
-> 面向面试和复盘场景的正式总结。Day1-Day4 学习笔记保留在 `docs/notes/`，本文用于快速讲清楚项目价值、核心架构和最终完成度。
+> 面向工程复盘的实现总结，记录项目价值、核心架构和主要取舍。
 
 ---
 
-## 0. 项目一句话
+## 项目概览
 
-项目 2 是一个多 Agent 协作代码审查系统：用户上传项目 zip 或提交代码片段后，后端提取代码文件，由 Orchestrator 分发给安全、性能、可维护性等专职 Agent 并行审查，最后统一做去重、风险排序、冲突仲裁，生成中文代码审查报告。
+Multi-Agent Code Review 是一个多 Agent 协作代码审查系统：用户上传项目 zip 或提交代码片段后，后端提取代码文件，由 Orchestrator 分发给安全、性能、可维护性等专职 Agent 并行审查，最后统一做去重、风险排序、冲突仲裁，生成中文代码审查报告。
 
 **技术栈**：FastAPI / Pydantic / ThreadPoolExecutor / SSE / HTML + React CDN / Claude Anthropic API / OpenAI-compatible API / unittest
 
@@ -14,14 +14,14 @@
 
 ---
 
-## 1. Day1-Day4 完成情况
+## 1. Implementation Milestones
 
 | 阶段 | 主题 | 产出 |
 |---|---|---|
-| Day1 | 为什么代码审查适合 Multi-Agent | 单 Agent 与 Multi-Agent 对比 demo，明确角色专业化和上下文隔离 |
-| Day2 | 编排模式与通信方式 | Orchestrator-Worker、Sequential、Hierarchical、Network 模式 demo，以及 MessageBus / Blackboard 设计 |
-| Day3 | 从 demo 升级为后端服务 | FastAPI、统一 Finding schema、Orchestrator 并行调度、去重、排序、冲突仲裁 |
-| Day4 | 产品化演示能力 | 项目 zip 上传、模型配置、连接测试、流式前端、中文报告 |
+| Stage 1 | 为什么代码审查适合 Multi-Agent | 单 Agent 与 Multi-Agent 对比 demo，明确角色专业化和上下文隔离 |
+| Stage 2 | 编排模式与通信方式 | Orchestrator-Worker、Sequential、Hierarchical、Network 模式 demo，以及 MessageBus / Blackboard 设计 |
+| Stage 3 | 从 demo 升级为后端服务 | FastAPI、统一 Finding schema、Orchestrator 并行调度、去重、排序、冲突仲裁 |
+| Stage 4 | 产品化演示能力 | 项目 zip 上传、模型配置、连接测试、流式前端、中文报告 |
 
 对应文档：
 
@@ -30,7 +30,7 @@ docs/notes/day1_notes.md
 docs/notes/day2_notes.md
 docs/notes/day3_notes.md
 docs/notes/day4_notes.md
-docs/notes/project2_final_notes.md
+docs/notes/final_notes.md
 ```
 
 ---
@@ -39,7 +39,7 @@ docs/notes/project2_final_notes.md
 
 ### 2.1 Multi-Agent 不是多调几个模型
 
-项目 2 的重点不是把同一个 prompt 跑三遍，而是把复杂任务拆成多个有职责边界的角色：
+本系统 的重点不是把同一个 prompt 跑三遍，而是把复杂任务拆成多个有职责边界的角色：
 
 ```text
 Security Agent      只关注安全风险
@@ -76,7 +76,7 @@ Orchestrator 不负责亲自审查代码，而是负责：
 生成最终报告
 ```
 
-这也是项目 2 和普通代码扫描脚本的区别：多个 Agent 不是各说各话，而是由一个统一决策层组织成最终结论。
+这也是本系统 和普通代码扫描脚本的区别：多个 Agent 不是各说各话，而是由一个统一决策层组织成最终结论。
 
 ### 2.4 本地规则 Agent 仍然有价值
 
@@ -95,7 +95,7 @@ Orchestrator 不负责亲自审查代码，而是负责：
 
 ### 2.5 AI 产品要考虑输入边界和成本
 
-Day4 的 zip 上传不是简单解压，而是做了工程限制：
+Stage 4 的 zip 上传不是简单解压，而是做了工程限制：
 
 ```text
 zip 最大 50MB
@@ -132,7 +132,7 @@ zip 最大 50MB
 
 ### 问题 4：只能审查单个文件，不像真实项目
 
-Day4 增加项目 zip 上传能力，后端自动过滤并提取代码文件，实现项目级代码审查，更接近真实 PR / 仓库审查场景。
+Stage 4 增加项目 zip 上传能力，后端自动过滤并提取代码文件，实现项目级代码审查，更接近真实 PR / 仓库审查场景。
 
 ### 问题 5：模型配置写死，不方便演示
 
@@ -277,8 +277,7 @@ FastAPI 入口，提供审查接口、流式接口、上传接口、GitHub Webho
 启动服务：
 
 ```powershell
-cd D:\Agent_project\project2_code_review_multiagent
-C:\Users\Administrator\.conda\envs\agent_env\python.exe -m uvicorn code_review_multiagent.app:app --app-dir src --reload --port 8000
+python -m uvicorn code_review_multiagent.app:app --app-dir src --reload --port 8000
 ```
 
 打开页面：
@@ -296,23 +295,22 @@ http://127.0.0.1:8000/docs
 运行测试：
 
 ```powershell
-cd D:\Agent_project\project2_code_review_multiagent
-C:\Users\Administrator\.conda\envs\agent_env\python.exe -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
 ```
 
 ---
 
-## 8. 面试可以这样讲
+## 8. Design Rationale
 
-### 简版 30 秒
+### Summary
 
-> 项目 2 是一个多 Agent 协作代码审查系统。我没有让一个大模型同时审查所有问题，而是用 Orchestrator-Worker 架构，把任务拆给安全、性能、可维护性三个专职 Agent。每个 Agent 输出统一的 Finding schema，Orchestrator 再做去重、风险排序和冲突仲裁。系统支持项目 zip 上传、模型运行时配置、GitHub Webhook 入口和流式中文报告展示。
+> Multi-Agent Code Review 是一个多 Agent 协作代码审查系统。我没有让一个大模型同时审查所有问题，而是用 Orchestrator-Worker 架构，把任务拆给安全、性能、可维护性三个专职 Agent。每个 Agent 输出统一的 Finding schema，Orchestrator 再做去重、风险排序和冲突仲裁。系统支持项目 zip 上传、模型运行时配置、GitHub Webhook 入口和流式中文报告展示。
 
-### 中版 2 分钟
+### Architecture rationale
 
 > 这个项目主要体现 Multi-Agent 编排能力。代码审查天然有多个维度，如果用一个超级 Agent，安全、性能、风格问题会混在同一份上下文里，容易漏问题，也很难控制工具边界。所以我设计了 Security、Performance、Style 三类专职 Agent，由 Orchestrator 统一分发任务并并行执行。为了让多 Agent 结果可被代码消费，我定义了统一的 Finding schema，所有 Agent 都输出结构化问题。Orchestrator 收到结果后会写入 Blackboard，再做去重、风险排序和冲突仲裁。例如性能 Agent 建议批量查询，安全 Agent 要求 SQL 参数化时，Orchestrator 会裁决安全优先，性能优化不能破坏参数化约束。
 
-### 可以深讲的亮点
+### Further discussion
 
 1. 为什么代码审查适合 Multi-Agent，而合同审查更适合单 Agent + RAG。
 2. 为什么要先定义 `Finding` schema，再做 Agent 实现。
@@ -338,7 +336,7 @@ C:\Users\Administrator\.conda\envs\agent_env\python.exe -m unittest discover -s 
 
 ## 10. 最终总结
 
-项目 2 最重要的价值不是“AI 能不能发现代码问题”，而是展示一个复杂 Agent 系统如何工程化：
+本系统 最重要的价值不是“AI 能不能发现代码问题”，而是展示一个复杂 Agent 系统如何工程化：
 
 ```text
 拆角色 → 定协议 → 并行调度 → 汇总结果 → 去重排序 → 冲突仲裁 → 产品化展示

@@ -1,8 +1,8 @@
 <div align="center">
 
-# Multi-Agent Code Review / 多 Agent 协作代码审查系统
+# Multi-Agent Code Review
 
-**面向 Pull Request 的多角色 Agent 审查、证据收集与评论生成平台**
+**A multi-agent pull request review system with diff awareness, tool use, review orchestration, and GitHub webhook support.**
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-review%20API-009688?logo=fastapi&logoColor=white)
@@ -12,107 +12,95 @@
 
 </div>
 
-## 项目简介
+## Overview
 
-项目2完成版 MVP：多个专职 Agent 从不同维度审查代码，Orchestrator 负责任务分发、结果汇总、去重和冲突仲裁，并提供 FastAPI 接口、GitHub Webhook 入口和可视化页面。
+Multi-Agent Code Review is an engineering-focused review service for pull requests and uploaded project archives. It parses diffs, plans review work by risk area, routes tasks to specialized agents, filters low-confidence findings, and returns a structured report that can be surfaced in a web console or posted back to GitHub.
 
-## 核心能力
+The system is designed to run without an LLM key for deterministic demos. When a model provider is configured, LLM tool-use agents join the same workflow and collect evidence through bounded tools instead of producing unconstrained free-form review text.
 
-- **Diff-aware PR 审查**：解析 unified diff，识别 changed files / hunks / changed lines，只对 PR 相关改动生成行级建议。
-- **Planner-driven Multi-Agent 编排**：先根据改动文件、语言和风险信号生成 Security / Performance / Maintainability / Test Coverage 任务，再分发给专职 Agent。
-- **角色专业化**：Security、Performance、Maintainability、Test Coverage 等 Agent 有独立职责和工具边界。
-- **LLM Tool Use 审查**：模型 Agent 可调用 grep、函数分析、SQL 安全检查等工具，多轮收集证据后输出结构化 Finding；无 API Key 时规则 Agent 保证演示稳定。
-- **Critic 复核层**：在 Orchestrator 汇总后对 Finding 做 PR 范围校验、误报抑制、置信度保留和冲突仲裁。
-- **GitHub Webhook / PR Comment**：提供 `/api/github/webhook` 入口，支持签名校验、PR changed files 拉取、summary comment，并提供 inline review comment payload 生成器。
-- **异步审查任务**：提供 `/api/reviews/jobs`，支持 queued/running/completed/failed 状态和事件追踪，适配长耗时 LLM review。
-- **Web 工作台**：浏览器打开根路径即可上传项目、查看审查记录、Agent 轨迹和按身份拆分的建议。
-- **消息通信与 Blackboard**：内置 MessageBus 和 Blackboard，Agent 输出统一写入共享 artifact store，由 Orchestrator 统一汇总。
-- **审查历史与指标**：支持 MySQL review history、Prometheus metrics、Docker Compose 部署。
+## Core Capabilities
 
-## 目录结构
+- Diff-aware review that maps findings back to changed files, hunks, and line numbers.
+- Planner-driven orchestration across Security, Performance, Maintainability, and Test Coverage agents.
+- Rule-based fallback agents for stable local execution without API credentials.
+- Optional LLM tool-use review with grep, function analysis, and SQL safety checks.
+- Critic layer for PR-scope validation, duplicate suppression, confidence filtering, and conflict arbitration.
+- GitHub pull request webhook endpoint with signature verification and comment payload generation.
+- Async review jobs with queued/running/completed/failed states and event tracing.
+- Web console for uploading project archives, viewing agent traces, and reading grouped findings.
+- Review history, Prometheus metrics, MySQL persistence, and Docker Compose deployment.
+
+## Architecture
 
 ```text
 src/
   code_review_multiagent/
-    agents/                 # 专职 Agent 和规则工具
-      llm_tooluse_agent.py  # LLM 多轮 tool_use 审查 Agent
-    app.py                  # FastAPI 应用，同步/异步审查 API
-    blackboard.py           # 共享结果黑板
-    commenter.py            # GitHub inline / summary comment payload 生成
-    critic.py               # Finding 复核、PR 范围过滤和误报抑制
-    diff_parser.py          # unified diff 解析为文件/hunk/changed line
-    github.py               # GitHub Webhook 解析与签名校验
-    llm_config.py           # 运行时模型配置，持久化到 llm_runtime_config.json
-    llm_client.py           # Claude Anthropic API / OpenAI-compatible 中转调用
-    message_bus.py          # Agent 消息总线
-    models.py               # ReviewRequest / Finding / ReviewReport schema
-    orchestrator.py         # Orchestrator 汇总、Critic 复核、去重、仲裁
-    planner.py              # 根据 diff 风险信号生成专职 Agent 任务
-    project_loader.py       # zip 项目解析、过滤、安全限制
-    review_context.py       # 将 ReviewRequest.files 与 diff changed lines 关联
-    web/index.html          # React CDN 前端面板
-  run_review.py             # 本地 CLI 审查入口
-tests/                      # unittest/pytest 测试
+    agents/                 Specialized rule and LLM agents
+    app.py                  FastAPI application
+    blackboard.py           Shared artifact store
+    commenter.py            GitHub summary and inline comment payloads
+    critic.py               Finding validation and deduplication
+    diff_parser.py          Unified diff parser
+    github.py               Webhook parsing and signature verification
+    llm_client.py           Anthropic and OpenAI-compatible clients
+    llm_config.py           Runtime model configuration
+    message_bus.py          Agent message bus
+    models.py               Request, finding, and report schemas
+    orchestrator.py         Task dispatch, aggregation, and arbitration
+    planner.py              Risk-aware task planner
+    project_loader.py       Project archive parsing and safety limits
+    review_context.py       Diff-to-file context mapping
+  run_review.py             Local CLI entry point
+tests/                      Unit and integration tests
 ```
 
-## 快速运行
+## Quick Start
 
-```powershell
-cd D:\Agent_project\project2_code_review_multiagent
-C:\Users\Administrator\.conda\envs\agent_env\python.exe -m pip install -r requirements.txt
-C:\Users\Administrator\.conda\envs\agent_env\python.exe -m uvicorn code_review_multiagent.app:app --app-dir src --reload --port 8000
+```bash
+git clone https://github.com/lemon7Cy/multi-agent-code-review.git
+cd multi-agent-code-review
+
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+
+python -m uvicorn code_review_multiagent.app:app --app-dir src --reload --port 8000
 ```
 
-然后打开：
+Open the web console:
 
 ```text
 http://127.0.0.1:8000
 ```
 
-API 文档：
+API docs:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-Docker Compose：
+## Docker
 
-```powershell
-Copy-Item .env.example .env
+```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-## 模型配置
+## Model Configuration
 
-不配置 API Key 时，系统仍会使用规则 Agent 完整演示；配置模型 API 后，LLM Tool Use Agent 会自动加入 Security / Performance / Style 等专职 Agent 的协作审查。
+The project works without API credentials by using deterministic rule agents. To enable LLM tool-use review, configure a provider through `.env` or the model settings panel in the web console.
 
-```powershell
-Copy-Item .env.example .env
-notepad .env
+```bash
+cp .env.example .env
 ```
 
-填写：
+Supported providers:
 
-```text
-ANTHROPIC_API_KEY=你的 Claude API Key
-ANTHROPIC_MODEL=claude-opus-4-6-thinking
-```
+- `claude`: Anthropic Messages API.
+- `deepseek`: OpenAI-compatible chat completions.
+- `newapi`: OpenAI-compatible gateway.
 
-也可以在前端点击右上角 **模型配置**，运行时保存：
-
-- provider：`claude` / `deepseek` / `newapi`
-- base_url：官方 Claude 可留空；Claude 兼容中转需支持 Anthropic `/v1/messages`
-- model：模型名，可刷新 `/v1/models`
-- api_key：留空则不覆盖已保存 key
-- timeout：请求超时秒数
-
-说明：
-
-- `provider=claude` 走 Anthropic Messages API：`/v1/messages`
-- `provider=deepseek` / `provider=newapi` 走 OpenAI-compatible Chat API：`/v1/chat/completions`
-- 如果模型调用失败，Orchestrator 保留规则 Agent 输出，并在对应模型 Agent notes 中记录降级原因，避免一次模型故障拖垮整次审查。
-
-后端接口：
+Runtime configuration endpoints:
 
 ```text
 GET  /llm-config
@@ -121,93 +109,61 @@ POST /llm-config/models
 POST /llm-config/test
 ```
 
-## 项目压缩包审查
+If a model call fails, the orchestrator keeps rule-agent findings and records the fallback reason in the review trace.
 
-前端首页默认就是项目上传区：把 `.zip` 拖进去，或者点击选择文件，再点“开始 Agent 审查”。
+## Archive Review
 
-后端接口：
+Upload a project archive from the web console or call the API directly:
 
 ```text
 POST /api/reviews/upload
 form-data:
   file: project.zip
-  repo: my/project
-  title: Project review
+  repo: owner/repo
+  title: Manual review
 ```
 
-安全与性能限制：
+Safety limits:
 
-- zip 最大 50MB
-- 单文件最大 300KB
-- 最多纳入 200 个文件
-- 总文本最大 2MB
-- 自动跳过 `.git`、`node_modules`、`.next`、`dist`、`build`、二进制文件等
+- Maximum archive size: 50 MB.
+- Maximum single file size: 300 KB.
+- Maximum included files: 200.
+- Maximum total text: 2 MB.
+- Skips `.git`, `node_modules`, `.next`, `dist`, `build`, binary files, and other generated artifacts.
 
-## 本地 CLI
+## CLI Usage
 
-```powershell
-C:\Users\Administrator\.conda\envs\agent_env\python.exe src\run_review.py src\03_day2_orchestration_communication.py
+```bash
+python src/run_review.py path/to/file.py
 ```
 
-输出 markdown 审查报告。
+The CLI prints a Markdown review report for local inspection.
 
-## API 示例
+## GitHub Webhook
 
-```powershell
-$body = @{
-  repo = "demo/repo"
-  title = "manual review"
-  files = @(
-    @{
-      path = "app/users.py"
-      content = 'def f(db, request):
-    user_id = request.args.get("id")
-    sql = "SELECT * FROM users WHERE id = " + user_id
-    return db.execute(sql).fetchone()'
-    }
-  )
-} | ConvertTo-Json -Depth 5
-
-Invoke-RestMethod -Method Post -Uri http://127.0.0.1:8000/api/reviews -ContentType application/json -Body $body
-```
-
-## GitHub Webhook 本地演示
-
-真实 GitHub `pull_request` webhook 默认不携带完整文件内容。生产环境需要用 GitHub API 拉 changed files / patch。MVP 为方便演示，支持在 payload 中传 `review_files`：
-
-```json
-{
-  "repository": {"full_name": "demo/repo"},
-  "pull_request": {"number": 3, "title": "demo pr"},
-  "review_files": [
-    {"path": "app/users.py", "content": "def f(db, request):\n    user_id = request.args.get(\"id\")\n    sql = \"SELECT * FROM users WHERE id = \" + user_id\n    return db.execute(sql).fetchone()"}
-  ]
-}
-```
-
-入口：
+Endpoint:
 
 ```text
 POST /api/github/webhook
 ```
 
-如果设置了 `GITHUB_WEBHOOK_SECRET`，服务会校验 `X-Hub-Signature-256`。
+When `GITHUB_WEBHOOK_SECRET` is configured, the service validates `X-Hub-Signature-256`. When `GITHUB_TOKEN` is configured, it can fetch pull request changed files and generate summary comments. For local integration tests, payloads may include `review_files` directly.
 
-配置 `GITHUB_TOKEN` 后，系统会在真实 `pull_request` webhook 中调用 GitHub API 拉取 changed files / patch，并把审查 Markdown 评论回 PR。未配置 token 时仍支持 payload 中传 `review_files`，用于本地联调。
+## Testing
 
-## 测试
-
-```powershell
-C:\Users\Administrator\.conda\envs\agent_env\python.exe -m unittest discover -s tests -v
+```bash
+python -m unittest discover -s tests -v
 ```
 
-## 面试表达
+## Documentation
 
-> 我在项目2中采用 Orchestrator-Worker 多 Agent 架构。Orchestrator 负责接收 PR 审查任务、分发给 Security / Performance / Style 等专职 Agent，并通过 MessageBus 和 Blackboard 收集结构化 Finding。无模型 Key 时规则 Agent 保证演示稳定；配置模型后，LLM Tool Use Agent 会调用 grep、函数分析、SQL 安全检查等工具做多轮证据收集。最后 Orchestrator 对所有 Agent 的 Finding 做去重、优先级排序和冲突仲裁，例如安全修复优先于性能优化，批量查询方案必须保留 SQL 参数化约束。
+- [Architecture](docs/ARCHITECTURE.md)
+- [Implementation summary](docs/IMPLEMENTATION_SUMMARY.md)
+- [Engineering upgrade plan](docs/engineering_upgrade_plan.md)
 
-## 后续可扩展点
+## Roadmap
 
-- 把 MessageBus 换成 Redis Stream。
-- 增加 Dependency Agent / Test Coverage Agent / Architecture Agent。
-- 调用 GitHub API 拉取 PR changed files，并把 markdown 报告评论回 PR。
-- 把 LLM 工具执行轨迹更细粒度地存入审查事件，便于面试演示 Agent 思考过程。
+- Move the message bus to Redis Streams for distributed workers.
+- Add dependency, architecture, and license-compliance agents.
+- Expand GitHub integration from summary comments to inline review comments.
+- Persist more granular tool traces for auditability.
